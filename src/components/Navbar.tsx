@@ -67,6 +67,12 @@ export const Navbar = () => {
             >
               Contact
             </Link>
+            <Link
+              to="/dashboard"
+              className="text-gray-800 hover:text-brand-blue transition-colors"
+            >
+              Dashboard
+            </Link>
           </div>
 
           {/* Search Button */}
