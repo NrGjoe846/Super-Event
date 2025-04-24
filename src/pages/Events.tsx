@@ -1,8 +1,8 @@
-
 import { useState } from "react";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { ButtonCustom } from "../components/ui/button-custom";
+import { PaginationCustom } from "../components/ui/pagination-custom";
 import { Link } from "react-router-dom";
 
 const eventTypes = [
@@ -74,10 +74,22 @@ const eventTypes = [
 
 const Events = () => {
   const [activeFilter, setActiveFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const popularEventTypes = eventTypes.filter(event => event.popular);
   const otherEventTypes = eventTypes.filter(event => !event.popular);
-  
+
+  const indexOfLastEvent = currentPage * itemsPerPage;
+  const indexOfFirstEvent = indexOfLastEvent - itemsPerPage;
+  const currentEvents = otherEventTypes.slice(indexOfFirstEvent, indexOfLastEvent);
+  const totalPages = Math.ceil(otherEventTypes.length / itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -90,7 +102,6 @@ const Events = () => {
             </p>
           </div>
 
-          {/* Popular Event Types Section */}
           <section className="mb-16">
             <h2 className="text-2xl font-bold mb-6 flex items-center">
               <span className="bg-brand-gold/20 text-brand-blue p-1 rounded-md mr-3">
@@ -135,12 +146,11 @@ const Events = () => {
             </div>
           </section>
 
-          {/* All Event Types Section */}
           <section>
             <h2 className="text-2xl font-bold mb-6">All Event Types</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {otherEventTypes.map((eventType) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {currentEvents.map((eventType) => (
                 <Link 
                   to={`/venues?event=${eventType.id}`} 
                   key={eventType.id}
@@ -165,9 +175,17 @@ const Events = () => {
                 </Link>
               ))}
             </div>
+
+            <PaginationCustom
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              itemsPerPage={itemsPerPage}
+              totalItems={otherEventTypes.length}
+              className="mt-8"
+            />
           </section>
 
-          {/* Promotion Section */}
           <section className="mt-20">
             <div className="bg-gradient-to-r from-brand-blue/10 to-brand-blue/5 rounded-2xl p-8 md:p-12 text-center relative overflow-hidden glass-card">
               <div className="absolute inset-0 bg-white/50 backdrop-blur-sm -z-10"></div>
