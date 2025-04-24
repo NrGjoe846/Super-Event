@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ButtonCustom } from "./ui/button-custom";
 import { Link } from "react-router-dom";
@@ -70,7 +69,7 @@ export const Footer = () => {
                 <Link to="/list-venue" className="text-gray-600 hover:text-brand-blue text-sm transition-colors">List Your Venue</Link>
               </li>
               <li>
-                <Link to="/pricing" className="text-gray-600 hover:text-brand-blue text-sm transition-colors">Pricing</Link>
+                <Link to="/dashboard" className="text-gray-600 hover:text-brand-blue text-sm transition-colors">Dashboard</Link>
               </li>
             </ul>
           </div>
