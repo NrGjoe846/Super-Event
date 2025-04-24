@@ -4,6 +4,7 @@ import { Footer } from "../components/Footer";
 import { VenueCard } from "../components/VenueCard";
 import { VenueDetailModal } from "../components/VenueDetailModal";
 import { ButtonCustom } from "../components/ui/button-custom";
+import { PaginationCustom } from "../components/ui/pagination-custom";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "react-router-dom";
 
@@ -127,22 +128,19 @@ const Venues = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [venues, setVenues] = useState(initialVenues);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
   const { toast } = useToast();
   const location = useLocation();
 
-  // Handle search filters from the hero section
   useEffect(() => {
     if (location.state?.filters) {
       const searchFilters = location.state.filters;
       console.log("Applying search filters:", searchFilters);
       
-      // In a real app, you would make an API call to fetch venues based on filters
-      // For now, we'll simulate filtering the venues
       setIsLoading(true);
       
-      // Simulate API call delay
       setTimeout(() => {
-        // Filter venues based on capacity
         let filteredVenues = [...initialVenues];
         
         if (searchFilters.capacity) {
@@ -153,7 +151,6 @@ const Venues = () => {
           });
         }
         
-        // Filter by location if provided
         if (searchFilters.location) {
           const locationLower = searchFilters.location.toLowerCase();
           filteredVenues = filteredVenues.filter(venue => 
@@ -161,7 +158,6 @@ const Venues = () => {
           );
         }
         
-        // Filter by activities if provided
         if (searchFilters.activities && searchFilters.activities.length > 0) {
           filteredVenues = filteredVenues.filter(venue => 
             searchFilters.activities.some((activity: string) => 
@@ -175,7 +171,6 @@ const Venues = () => {
         setVenues(filteredVenues);
         setIsLoading(false);
         
-        // Show toast with search results
         toast({
           title: `Found ${filteredVenues.length} venues`,
           description: searchFilters.eventName 
@@ -203,6 +198,20 @@ const Venues = () => {
     }
     return 0;
   });
+
+  const indexOfLastVenue = currentPage * itemsPerPage;
+  const indexOfFirstVenue = indexOfLastVenue - itemsPerPage;
+  const currentVenues = sortedVenues.slice(indexOfFirstVenue, indexOfLastVenue);
+  const totalPages = Math.ceil(sortedVenues.length / itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, sortBy]);
 
   const handleVenueClick = (venue: typeof venues[0]) => {
     setSelectedVenue(venue);
@@ -266,23 +275,34 @@ const Venues = () => {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-blue"></div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sortedVenues.map((venue) => (
-                <div key={venue.id} onClick={() => handleVenueClick(venue)} className="cursor-pointer">
-                  <VenueCard
-                    id={venue.id}
-                    image={venue.images[0]}
-                    name={venue.name}
-                    location={venue.location}
-                    price={venue.price}
-                    rating={venue.rating}
-                    featured={venue.featured}
-                    availability={venue.availability}
-                    amenities={venue.amenities}
-                  />
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {currentVenues.map((venue) => (
+                  <div key={venue.id} onClick={() => handleVenueClick(venue)} className="cursor-pointer">
+                    <VenueCard
+                      id={venue.id}
+                      image={venue.images[0]}
+                      name={venue.name}
+                      location={venue.location}
+                      price={venue.price}
+                      rating={venue.rating}
+                      featured={venue.featured}
+                      availability={venue.availability}
+                      amenities={venue.amenities}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <PaginationCustom
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                itemsPerPage={itemsPerPage}
+                totalItems={sortedVenues.length}
+                className="mt-8"
+              />
+            </>
           )}
 
           {!isLoading && sortedVenues.length === 0 && (
@@ -318,4 +338,3 @@ const Venues = () => {
 };
 
 export default Venues;
-
