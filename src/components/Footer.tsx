@@ -19,7 +19,7 @@ export const Footer = () => {
           {/* Column 1 - Logo & About */}
           <div className="flex flex-col">
             <Link to="/" className="flex items-center mb-4">
-              <span className="text-brand-blue font-bold text-xl">gather<span className="text-brand-gold">haven</span></span>
+              <span className="text-brand-blue font-bold text-xl">Super<span className="text-brand-gold">Events</span></span>
             </Link>
             <p className="text-gray-600 text-sm mb-6">
               Premium venue booking platform connecting event planners with exceptional spaces for memorable experiences.
@@ -122,7 +122,7 @@ export const Footer = () => {
 
         <div className="border-t border-gray-200 mt-12 pt-6 flex flex-col sm:flex-row justify-between items-center">
           <p className="text-gray-500 text-sm">
-            © {new Date().getFullYear()} gatherhaven. All rights reserved.
+            © {new Date().getFullYear()} Super Events. All rights reserved.
           </p>
           <div className="mt-4 sm:mt-0">
             <Link to="/terms" className="text-gray-500 hover:text-brand-blue text-sm mr-4 transition-colors">
