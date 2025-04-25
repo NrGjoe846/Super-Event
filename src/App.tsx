@@ -9,6 +9,7 @@ import Events from "./pages/Events";
 import About from "./pages/About";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import AddVenue from "./pages/AddVenue";
 import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/venues" element={<Venues />} />
             <Route path="/events" element={<Events />} />
             <Route path="/about" element={<About />} />
+            <Route path="/add-venue" element={<AddVenue />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
