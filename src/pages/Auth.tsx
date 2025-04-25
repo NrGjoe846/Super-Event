@@ -34,7 +34,7 @@ const Auth = () => {
         await signup(name, email, password, isVenueOwner);
         toast({
           title: "Account created successfully",
-          description: "Welcome to GatherHaven!",
+          description: "Welcome to Super Events!",
           variant: "default",
         });
       }
