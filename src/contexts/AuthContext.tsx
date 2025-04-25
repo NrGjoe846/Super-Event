@@ -1,10 +1,12 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
+import { mockUsers, validateCredentials } from "@/services/mockUsers";
 
 interface User {
   id: string;
   name: string;
   email: string;
   isGuest: boolean;
+  isVenueOwner: boolean;
 }
 
 interface AuthContextType {
@@ -12,7 +14,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, isVenueOwner: boolean) => Promise<void>;
   continueAsGuest: () => void;
   logout: () => void;
 }
@@ -35,19 +37,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const validatedUser = validateCredentials(email, password);
+      if (!validatedUser) {
+        throw new Error("Invalid credentials");
+      }
       
-      // In a real app, you would validate credentials with a backend
-      const newUser = {
-        id: Math.random().toString(36).substring(2, 9),
-        name: email.split('@')[0],
-        email,
-        isGuest: false
+      const userToStore = {
+        id: validatedUser.id,
+        name: validatedUser.name,
+        email: validatedUser.email,
+        isGuest: false,
+        isVenueOwner: validatedUser.isVenueOwner
       };
       
-      setUser(newUser);
-      localStorage.setItem("user", JSON.stringify(newUser));
+      setUser(userToStore);
+      localStorage.setItem("user", JSON.stringify(userToStore));
     } catch (error) {
       console.error("Login failed:", error);
       throw error;
@@ -56,22 +60,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (name: string, email: string, password: string, isVenueOwner: boolean) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // In a real app, you would create a user in your backend
+      // Check if email already exists
+      const existingUser = mockUsers.find(u => u.email === email);
+      if (existingUser) {
+        throw new Error("Email already exists");
+      }
+
+      // Create new user
       const newUser = {
-        id: Math.random().toString(36).substring(2, 9),
+        id: `user${mockUsers.length + 1}`,
         name,
         email,
-        isGuest: false
+        password,
+        isVenueOwner,
+        createdAt: new Date()
+      };
+
+      // Add to mock users array
+      mockUsers.push(newUser);
+
+      // Create user object for state/storage (without password)
+      const userToStore = {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        isGuest: false,
+        isVenueOwner: newUser.isVenueOwner
       };
       
-      setUser(newUser);
-      localStorage.setItem("user", JSON.stringify(newUser));
+      setUser(userToStore);
+      localStorage.setItem("user", JSON.stringify(userToStore));
     } catch (error) {
       console.error("Signup failed:", error);
       throw error;
@@ -85,7 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `guest-${Math.random().toString(36).substring(2, 9)}`,
       name: "Guest User",
       email: "",
-      isGuest: true
+      isGuest: true,
+      isVenueOwner: false
     };
     
     setUser(guestUser);
