@@ -3,20 +3,27 @@ import { Calendar } from "@/components/ui/calendar";
 import { useCalendar } from "@/hooks/useCalendar";
 import { format } from "date-fns";
 import { ButtonCustom } from "./ui/button-custom";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { loadStripe } from "@stripe/stripe-js";
 
 interface VenueCalendarProps {
   venueId: string;
   venueName: string;
+  pricePerHour: number;
 }
 
-export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName }) => {
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+
+export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName, pricePerHour }) => {
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const { events, addEvent, checkAvailability, getEventsByDate } = useCalendar(venueId);
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
 
   const timeSlots = [
     "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -26,7 +33,7 @@ export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName
 
   const isTimeSlotAvailable = (date: Date, timeSlot: string) => {
     const [hour, period] = timeSlot.split(" ");
-    const [hourStr, minuteStr] = hour.split(":");
+    const [hourStr] = hour.split(":");
     let hour24 = parseInt(hourStr);
     
     if (period === "PM" && hour24 !== 12) hour24 += 12;
@@ -41,6 +48,15 @@ export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName
   };
 
   const handleDateSelect = (date: Date | undefined) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to book a venue",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setSelectedDate(date);
     if (date) {
       setIsBookingModalOpen(true);
@@ -48,24 +64,53 @@ export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName
   };
 
   const handleBooking = async () => {
-    if (!selectedDate || !selectedTimeSlot) return;
+    if (!selectedDate || !selectedTimeSlot || !user) return;
 
-    const [hour, period] = selectedTimeSlot.split(" ");
-    const [hourStr, minuteStr] = hour.split(":");
-    let hour24 = parseInt(hourStr);
-    
-    if (period === "PM" && hour24 !== 12) hour24 += 12;
-    if (period === "AM" && hour24 === 12) hour24 = 0;
-
-    const startTime = new Date(selectedDate);
-    startTime.setHours(hour24, 0, 0, 0);
-    const endTime = new Date(startTime);
-    endTime.setHours(hour24 + 1, 0, 0, 0);
+    setIsProcessing(true);
 
     try {
+      const stripe = await stripePromise;
+      if (!stripe) throw new Error("Stripe failed to load");
+
+      const [hour, period] = selectedTimeSlot.split(" ");
+      const [hourStr] = hour.split(":");
+      let hour24 = parseInt(hourStr);
+      
+      if (period === "PM" && hour24 !== 12) hour24 += 12;
+      if (period === "AM" && hour24 === 12) hour24 = 0;
+
+      const startTime = new Date(selectedDate);
+      startTime.setHours(hour24, 0, 0, 0);
+      const endTime = new Date(startTime);
+      endTime.setHours(hour24 + 1, 0, 0, 0);
+
+      // Create payment intent
+      const response = await fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: pricePerHour,
+          venueId,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        }),
+      });
+
+      const { clientSecret } = await response.json();
+
+      // Confirm payment
+      const { error: stripeError } = await stripe.confirmCardPayment(clientSecret);
+
+      if (stripeError) {
+        throw new Error(stripeError.message);
+      }
+
+      // Add booking to calendar
       await addEvent({
         venueId,
-        userId: "user123", // Replace with actual user ID
+        userId: user.id,
         title: "Venue Booking",
         start: startTime,
         end: endTime,
@@ -78,14 +123,32 @@ export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName
         description: `Your booking for ${format(startTime, "PPP")} at ${selectedTimeSlot} has been confirmed.`,
       });
 
+      // Send confirmation email
+      await fetch('/api/send-confirmation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user.email,
+          booking: {
+            venue: venueName,
+            date: format(startTime, "PPP"),
+            time: selectedTimeSlot,
+          },
+        }),
+      });
+
       setIsBookingModalOpen(false);
       setSelectedTimeSlot("");
     } catch (error) {
       toast({
         title: "Booking Failed",
-        description: "There was an error processing your booking. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error processing your booking. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -133,9 +196,12 @@ export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName
       </div>
 
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Select Time Slot</DialogTitle>
+            <DialogTitle>Book Time Slot</DialogTitle>
+            <DialogDescription>
+              Select your preferred time slot. Price: ₹{pricePerHour} per hour
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-3 gap-3 mt-4">
             {timeSlots.map((timeSlot) => {
@@ -158,19 +224,38 @@ export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName
               );
             })}
           </div>
+          <div className="mt-6 p-4 bg-gray-50 rounded-md">
+            <h4 className="font-medium mb-2">Booking Summary</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>Date</span>
+                <span>{selectedDate ? format(selectedDate, "PPP") : "-"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Time</span>
+                <span>{selectedTimeSlot || "-"}</span>
+              </div>
+              <div className="flex justify-between font-medium">
+                <span>Total Amount</span>
+                <span>₹{pricePerHour}</span>
+              </div>
+            </div>
+          </div>
           <div className="flex justify-end gap-3 mt-6">
             <ButtonCustom
               variant="outline"
               onClick={() => setIsBookingModalOpen(false)}
+              disabled={isProcessing}
             >
               Cancel
             </ButtonCustom>
             <ButtonCustom
               variant="gold"
               onClick={handleBooking}
-              disabled={!selectedTimeSlot}
+              disabled={!selectedTimeSlot || isProcessing}
+              isLoading={isProcessing}
             >
-              Book Now
+              {isProcessing ? "Processing..." : "Book Now"}
             </ButtonCustom>
           </div>
         </DialogContent>
