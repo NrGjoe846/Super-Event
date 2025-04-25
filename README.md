@@ -1,6 +1,6 @@
-# GatherHaven - Indian Venue Booking Platform
+# Super Events -  Venue Booking Platform
 
-GatherHaven is a modern web application that connects event planners with exceptional venues across India. From traditional weddings to corporate events, find the perfect space for any occasion.
+Super Events is a modern web application that connects event planners with exceptional venues across India. From traditional weddings to corporate events, find the perfect space for any occasion.
 
 ## Features
 
@@ -27,7 +27,7 @@ GatherHaven is a modern web application that connects event planners with except
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd gatherhaven
+cd Super Events
 ```
 
 2. Install dependencies:
