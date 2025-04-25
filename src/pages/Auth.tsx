@@ -31,7 +31,7 @@ const Auth = () => {
           variant: "default",
         });
       } else {
-        await signup(name, email, password);
+        await signup(name, email, password, isVenueOwner);
         toast({
           title: "Account created successfully",
           description: "Welcome to GatherHaven!",
@@ -41,8 +41,8 @@ const Auth = () => {
       navigate("/home");
     } catch (error) {
       toast({
-        title: "Authentication failed",
-        description: "Please check your credentials and try again",
+        title: activeTab === "login" ? "Login failed" : "Signup failed",
+        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       });
     } finally {
