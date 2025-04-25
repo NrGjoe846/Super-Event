@@ -63,7 +63,7 @@ export const Footer = () => {
                 <Link to="/events" className="text-gray-600 hover:text-brand-blue text-sm transition-colors">Event Types</Link>
               </li>
               <li>
-                <Link to="/how-it-works" className="text-gray-600 hover:text-brand-blue text-sm transition-colors">How It Works</Link>
+                <Link to="/add-venue" className="text-gray-600 hover:text-brand-blue text-sm transition-colors">Add Venue</Link>
               </li>
               <li>
                 <Link to="/list-venue" className="text-gray-600 hover:text-brand-blue text-sm transition-colors">List Your Venue</Link>
