@@ -37,7 +37,7 @@ export const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center">
             <span className="text-brand-blue font-bold text-2xl">
-              gather<span className="text-brand-gold">haven</span>
+              Super<span className="text-brand-gold">Events</span>
             </span>
           </Link>
 
