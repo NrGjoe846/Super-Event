@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { loadStripe } from "@stripe/stripe-js";
+import { io } from "socket.io-client";
 
 interface VenueCalendarProps {
   venueId: string;
@@ -24,6 +25,11 @@ export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName
   const { events, addEvent, checkAvailability, getEventsByDate } = useCalendar(venueId);
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
+
+  const newSocket = io('https://api.superevent.com', {
+    query: { venueId },
+    auth: { token: user?.id },
+  });
 
   const timeSlots = [
     "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
@@ -119,8 +125,8 @@ export const VenueCalendar: React.FC<VenueCalendarProps> = ({ venueId, venueName
       });
 
       toast({
-        title: "Booking Successful",
-        description: `Your booking for ${format(startTime, "PPP")} at ${selectedTimeSlot} has been confirmed.`,
+        title: "Account created successfully",
+        description: "Your venue has been listed on Super Events",
       });
 
       // Send confirmation email
