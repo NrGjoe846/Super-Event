@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { ButtonCustom } from "../components/ui/button-custom";
@@ -13,6 +13,7 @@ const AddVenue = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [imageLink, setImageLink] = useState("");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     name: "",
@@ -129,6 +130,43 @@ const AddVenue = () => {
       setImages(prev => [...prev, ...newImages]);
       setFormErrors(prev => ({ ...prev, images: "" }));
     }
+  };
+
+  const validateImageUrl = (url: string) => {
+    return url.match(/\.(jpeg|jpg|gif|png)$/) != null;
+  };
+
+  const handleImageLinkAdd = () => {
+    if (!imageLink.trim()) {
+      toast({
+        title: "Invalid image link",
+        description: "Please enter a valid image URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateImageUrl(imageLink)) {
+      toast({
+        title: "Invalid image format",
+        description: "Please enter a valid image URL (jpeg, jpg, gif, or png)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (images.length >= 5) {
+      toast({
+        title: "Too many images",
+        description: "Maximum 5 images allowed",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setImages(prev => [...prev, imageLink]);
+    setImageLink("");
+    setFormErrors(prev => ({ ...prev, images: "" }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -347,6 +385,25 @@ const AddVenue = () => {
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <h2 className="text-xl font-semibold mb-4">Venue Images</h2>
               <div className="space-y-4">
+                {/* Image Link Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={imageLink}
+                    onChange={(e) => setImageLink(e.target.value)}
+                    placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                    className="flex-1 px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                  />
+                  <ButtonCustom
+                    type="button"
+                    variant="primary"
+                    onClick={handleImageLinkAdd}
+                    disabled={!imageLink.trim()}
+                  >
+                    Add Link
+                  </ButtonCustom>
+                </div>
+
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {images.map((image, index) => (
                     <div key={index} className="relative aspect-video rounded-lg overflow-hidden">
@@ -390,6 +447,7 @@ const AddVenue = () => {
                 )}
                 <p className="text-sm text-gray-500">
                   Upload high-quality images of your venue. Maximum 5 images, each under 5MB.
+                  You can either upload files or add image URLs.
                 </p>
               </div>
             </div>
