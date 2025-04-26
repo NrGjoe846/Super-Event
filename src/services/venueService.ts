@@ -21,15 +21,28 @@ export interface Venue extends Omit<VenueFormData, 'price'> {
   updatedAt: Date;
 }
 
+type VenueSubscriber = (venues: Venue[]) => void;
+const subscribers = new Set<VenueSubscriber>();
+
+const notifySubscribers = (venues: Venue[]) => {
+  subscribers.forEach(subscriber => subscriber(venues));
+};
+
+export const subscribeToVenues = (subscriber: VenueSubscriber) => {
+  subscribers.add(subscriber);
+  return () => subscribers.delete(subscriber);
+};
+
 // Get venues from localStorage or initialize empty array
 const getStoredVenues = (): Venue[] => {
   const stored = localStorage.getItem('venues');
   return stored ? JSON.parse(stored) : [];
 };
 
-// Save venues to localStorage
+// Save venues to localStorage and notify subscribers
 const saveVenues = (venues: Venue[]) => {
   localStorage.setItem('venues', JSON.stringify(venues));
+  notifySubscribers(venues);
 };
 
 export const addVenue = async (formData: VenueFormData, ownerId: string): Promise<Venue> => {
