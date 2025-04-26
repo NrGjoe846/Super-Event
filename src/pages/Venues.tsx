@@ -7,7 +7,7 @@ import { ButtonCustom } from "../components/ui/button-custom";
 import { PaginationCustom } from "../components/ui/pagination-custom";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "react-router-dom";
-import { getAllVenues, Venue } from "@/services/venueService";
+import { getAllVenues, Venue, subscribeToVenues } from "@/services/venueService";
 
 const filters = [
   { name: "All", value: "all" },
@@ -31,6 +31,13 @@ const Venues = () => {
 
   useEffect(() => {
     loadVenues();
+
+    // Subscribe to venue updates
+    const unsubscribe = subscribeToVenues((updatedVenues) => {
+      setVenues(updatedVenues);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadVenues = async () => {
