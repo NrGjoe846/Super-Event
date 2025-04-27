@@ -1,5 +1,14 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { supabase } from '@/lib/supabase';
+import { 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+  User as FirebaseUser
+} from "firebase/auth";
+import { auth, googleProvider } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 
 interface User {
@@ -15,12 +24,21 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   signup: (name: string, email: string, password: string, isVenueOwner: boolean) => Promise<void>;
   continueAsGuest: () => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const createUserObject = (firebaseUser: FirebaseUser, isVenueOwner = false): User => ({
+  id: firebaseUser.uid,
+  name: firebaseUser.displayName || 'User',
+  email: firebaseUser.email || '',
+  isGuest: false,
+  isVenueOwner: isVenueOwner || firebaseUser.metadata?.customClaims?.isVenueOwner || false
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -28,91 +46,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          name: session.user.user_metadata.name || 'User',
-          isGuest: false,
-          isVenueOwner: session.user.user_metadata.isVenueOwner || false
-        });
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(createUserObject(firebaseUser));
+      } else {
+        setUser(null);
       }
       setIsLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          name: session.user.user_metadata.name || 'User',
-          isGuest: false,
-          isVenueOwner: session.user.user_metadata.isVenueOwner || false
-        });
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        setUser({
-          id: data.user.id,
-          email: data.user.email!,
-          name: data.user.user_metadata.name || 'User',
-          isGuest: false,
-          isVenueOwner: data.user.user_metadata.isVenueOwner || false
-        });
-      }
-    } catch (error) {
+      const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
+      setUser(createUserObject(firebaseUser));
+    } catch (error: any) {
       console.error("Login error:", error);
-      throw error;
+      throw new Error(error.message || "Failed to login");
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    try {
+      const { user: firebaseUser } = await signInWithPopup(auth, googleProvider);
+      setUser(createUserObject(firebaseUser));
+    } catch (error: any) {
+      console.error("Google login error:", error);
+      throw new Error(error.message || "Failed to login with Google");
     }
   };
 
   const signup = async (name: string, email: string, password: string, isVenueOwner: boolean) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            isVenueOwner
-          }
-        }
+      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update user profile with name
+      await updateProfile(firebaseUser, {
+        displayName: name
       });
 
-      if (error) throw error;
+      // Create custom user object with venue owner status
+      const userObject = createUserObject(firebaseUser, isVenueOwner);
+      setUser(userObject);
 
-      if (data.user) {
-        setUser({
-          id: data.user.id,
-          email: data.user.email!,
-          name: data.user.user_metadata.name,
-          isGuest: false,
-          isVenueOwner: data.user.user_metadata.isVenueOwner
-        });
-      }
-    } catch (error) {
+      // Store additional user data in Firestore if needed
+      // await setDoc(doc(db, "users", firebaseUser.uid), {
+      //   name,
+      //   email,
+      //   isVenueOwner,
+      //   createdAt: new Date()
+      // });
+    } catch (error: any) {
       console.error("Signup error:", error);
-      throw error;
+      throw new Error(error.message || "Failed to create account");
     }
   };
 
@@ -129,8 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await signOut(auth);
       setUser(null);
     } catch (error) {
       console.error("Logout error:", error);
@@ -149,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user && !user.isGuest,
         isLoading,
         login,
+        loginWithGoogle,
         signup,
         continueAsGuest,
         logout
