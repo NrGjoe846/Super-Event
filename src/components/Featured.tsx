@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { VenueCard } from "./VenueCard";
 import { ButtonCustom } from "./ui/button-custom";
