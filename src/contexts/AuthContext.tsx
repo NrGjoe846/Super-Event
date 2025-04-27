@@ -8,7 +8,8 @@ import {
   updateProfile,
   User as FirebaseUser
 } from "firebase/auth";
-import { auth, googleProvider } from '@/lib/firebase';
+import { auth, googleProvider, db } from '@/lib/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 
 interface User {
@@ -17,6 +18,7 @@ interface User {
   email: string;
   isGuest: boolean;
   isVenueOwner: boolean;
+  photoURL?: string;
 }
 
 interface AuthContextType {
@@ -32,13 +34,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const createUserObject = (firebaseUser: FirebaseUser, isVenueOwner = false): User => ({
-  id: firebaseUser.uid,
-  name: firebaseUser.displayName || 'User',
-  email: firebaseUser.email || '',
-  isGuest: false,
-  isVenueOwner: isVenueOwner || firebaseUser.metadata?.customClaims?.isVenueOwner || false
-});
+const createUserObject = async (firebaseUser: FirebaseUser, isVenueOwner = false): Promise<User> => {
+  // Check if user document exists in Firestore
+  const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+  const userData = userDoc.data();
+
+  return {
+    id: firebaseUser.uid,
+    name: firebaseUser.displayName || userData?.name || 'User',
+    email: firebaseUser.email || '',
+    isGuest: false,
+    isVenueOwner: userData?.isVenueOwner || isVenueOwner,
+    photoURL: firebaseUser.photoURL || undefined
+  };
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -46,9 +55,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        setUser(createUserObject(firebaseUser));
+        const userObject = await createUserObject(firebaseUser);
+        setUser(userObject);
       } else {
         setUser(null);
       }
@@ -61,7 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
-      setUser(createUserObject(firebaseUser));
+      const userObject = await createUserObject(firebaseUser);
+      setUser(userObject);
     } catch (error: any) {
       console.error("Login error:", error);
       throw new Error(error.message || "Failed to login");
@@ -71,7 +82,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     try {
       const { user: firebaseUser } = await signInWithPopup(auth, googleProvider);
-      setUser(createUserObject(firebaseUser));
+      const userObject = await createUserObject(firebaseUser);
+      
+      // Create/update user document in Firestore
+      await setDoc(doc(db, 'users', firebaseUser.uid), {
+        name: firebaseUser.displayName,
+        email: firebaseUser.email,
+        isVenueOwner: false,
+        photoURL: firebaseUser.photoURL,
+        lastLogin: new Date()
+      }, { merge: true });
+
+      setUser(userObject);
     } catch (error: any) {
       console.error("Google login error:", error);
       throw new Error(error.message || "Failed to login with Google");
@@ -87,17 +109,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         displayName: name
       });
 
-      // Create custom user object with venue owner status
-      const userObject = createUserObject(firebaseUser, isVenueOwner);
-      setUser(userObject);
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', firebaseUser.uid), {
+        name,
+        email,
+        isVenueOwner,
+        createdAt: new Date(),
+        lastLogin: new Date()
+      });
 
-      // Store additional user data in Firestore if needed
-      // await setDoc(doc(db, "users", firebaseUser.uid), {
-      //   name,
-      //   email,
-      //   isVenueOwner,
-      //   createdAt: new Date()
-      // });
+      const userObject = await createUserObject(firebaseUser, isVenueOwner);
+      setUser(userObject);
     } catch (error: any) {
       console.error("Signup error:", error);
       throw new Error(error.message || "Failed to create account");
