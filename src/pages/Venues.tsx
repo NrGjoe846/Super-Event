@@ -32,7 +32,6 @@ const Venues = () => {
   useEffect(() => {
     loadVenues();
 
-    // Subscribe to venue updates
     const unsubscribe = subscribeToVenues((updatedVenues) => {
       setVenues(updatedVenues);
     });
@@ -102,7 +101,13 @@ const Venues = () => {
     }
   }, [location.state, toast]);
   
-  const filteredVenues = venues;
+  // Filter venues based on active filter
+  const filteredVenues = venues.filter(venue => {
+    if (activeFilter === "all") return true;
+    return venue.amenities.some(amenity => 
+      amenity.toLowerCase().includes(activeFilter.toLowerCase())
+    );
+  });
   
   const sortedVenues = [...filteredVenues].sort((a, b) => {
     if (sortBy === "featured") {
