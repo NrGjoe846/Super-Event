@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import { toast } from "@/hooks/use-toast";
 
 export interface VenueFormData {
