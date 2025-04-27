@@ -513,32 +513,19 @@ const subscribers = new Set<VenueSubscriber>();
 
 export const subscribeToVenues = (subscriber: VenueSubscriber) => {
   subscribers.add(subscriber);
-
-  // Set up real-time subscription
-  const subscription = supabase
-    .channel('venues_channel')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'venues'
-      },
-      async () => {
-        // Fetch updated venues when changes occur
-        const venues = await getAllVenues();
-        subscribers.forEach(sub => sub(venues));
-      }
-    )
-    .subscribe();
+  
+  // Initial callback with current data
+  subscriber(mockVenues);
 
   return () => {
     subscribers.delete(subscriber);
-    subscription.unsubscribe();
   };
 };
 
-// Modified to return mock data for development
+const notifySubscribers = () => {
+  subscribers.forEach(subscriber => subscriber(mockVenues));
+};
+
 export const getAllVenues = async (): Promise<Venue[]> => {
   return mockVenues;
 };
@@ -572,6 +559,7 @@ export const addVenue = async (formData: VenueFormData, ownerId: string): Promis
   };
 
   mockVenues.push(newVenue);
+  notifySubscribers();
   return newVenue;
 };
 
@@ -589,6 +577,7 @@ export const updateVenue = async (
     updated_at: new Date().toISOString()
   };
 
+  notifySubscribers();
   return mockVenues[index];
 };
 
@@ -596,4 +585,5 @@ export const deleteVenue = async (venueId: string, ownerId: string): Promise<voi
   const index = mockVenues.findIndex(v => v.id === venueId && v.owner_id === ownerId);
   if (index === -1) throw new Error("Venue not found");
   mockVenues.splice(index, 1);
+  notifySubscribers();
 };
