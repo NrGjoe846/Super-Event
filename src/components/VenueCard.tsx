@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { ButtonCustom } from "./ui/button-custom";
 import { ArrowRight } from "lucide-react";
@@ -158,7 +157,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
         
         <div className="flex justify-between items-center">
           <div>
-            <span className="text-lg font-semibold text-brand-blue">${price}</span>
+            <span className="text-lg font-semibold text-brand-blue">₹{price.toLocaleString()}</span>
             <span className="text-sm text-gray-500"> /day</span>
           </div>
           
