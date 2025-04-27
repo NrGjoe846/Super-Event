@@ -7,24 +7,80 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getVenuesByOwner, deleteVenue } from "@/services/venueService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import { format } from "date-fns";
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("venues");
+  const [activeTab, setActiveTab] = useState("overview");
   const [venues, setVenues] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [bookings, setBookings] = useState([
     {
       id: "1",
       venueName: "Sample Venue",
+      customerName: "John Doe",
       date: "2024-03-15",
       time: "14:00",
       status: "confirmed",
       amount: 25000
     }
   ]);
+
+  // Analytics data
+  const analyticsData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Revenue',
+        data: [30000, 45000, 35000, 50000, 60000, 75000],
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.1
+      },
+      {
+        label: 'Bookings',
+        data: [10, 15, 12, 18, 20, 25],
+        borderColor: 'rgb(255, 99, 132)',
+        tension: 0.1
+      }
+    ]
+  };
+
+  const analyticsOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Monthly Performance'
+      }
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -69,6 +125,19 @@ const Dashboard = () => {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -78,51 +147,113 @@ const Dashboard = () => {
             <div>
               <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
               <p className="text-gray-600">
-                Welcome back, {user?.name}!
+                Welcome back, {user?.name}! Here's your venue management overview.
               </p>
             </div>
-            <ButtonCustom
-              variant="gold"
-              onClick={() => navigate("/add-venue")}
-            >
-              Add New Venue
-            </ButtonCustom>
+            <div className="flex gap-3">
+              <ButtonCustom
+                variant="outline"
+                onClick={() => navigate("/venues")}
+              >
+                View All Venues
+              </ButtonCustom>
+              <ButtonCustom
+                variant="gold"
+                onClick={() => navigate("/add-venue")}
+              >
+                Add New Venue
+              </ButtonCustom>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-medium mb-2">Total Venues</h3>
-              <p className="text-3xl font-bold text-brand-blue">
-                {venues.length}
-              </p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-medium mb-2">Active Bookings</h3>
-              <p className="text-3xl font-bold text-brand-blue">
-                {bookings.filter(b => b.status === "confirmed").length}
-              </p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-medium mb-2">Total Revenue</h3>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Total Revenue</h3>
               <p className="text-3xl font-bold text-brand-blue">
                 ₹{bookings.reduce((sum, booking) => sum + booking.amount, 0).toLocaleString()}
               </p>
+              <p className="text-sm text-green-600 mt-2">+12.5% from last month</p>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Active Venues</h3>
+              <p className="text-3xl font-bold text-brand-blue">{venues.length}</p>
+              <p className="text-sm text-gray-600 mt-2">Across {venues.length} locations</p>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Total Bookings</h3>
+              <p className="text-3xl font-bold text-brand-blue">{bookings.length}</p>
+              <p className="text-sm text-green-600 mt-2">+5% from last month</p>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Avg. Rating</h3>
+              <p className="text-3xl font-bold text-brand-blue">4.8</p>
+              <p className="text-sm text-gray-600 mt-2">From 150 reviews</p>
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="w-full border-b">
-                <TabsTrigger value="venues" className="flex-1">
+              <TabsList className="w-full border-b p-0">
+                <TabsTrigger value="overview" className="flex-1 py-4">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="venues" className="flex-1 py-4">
                   My Venues
                 </TabsTrigger>
-                <TabsTrigger value="bookings" className="flex-1">
+                <TabsTrigger value="bookings" className="flex-1 py-4">
                   Bookings
                 </TabsTrigger>
-                <TabsTrigger value="analytics" className="flex-1">
+                <TabsTrigger value="analytics" className="flex-1 py-4">
                   Analytics
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="overview" className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-lg border p-6">
+                    <h3 className="text-lg font-semibold mb-4">Recent Bookings</h3>
+                    <div className="space-y-4">
+                      {bookings.slice(0, 5).map((booking) => (
+                        <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0">
+                          <div>
+                            <p className="font-medium">{booking.venueName}</p>
+                            <p className="text-sm text-gray-600">{booking.customerName}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">₹{booking.amount.toLocaleString()}</p>
+                            <p className="text-sm text-gray-600">{format(new Date(booking.date), 'PP')}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg border p-6">
+                    <h3 className="text-lg font-semibold mb-4">Popular Venues</h3>
+                    <div className="space-y-4">
+                      {venues.slice(0, 5).map((venue: any) => (
+                        <div key={venue.id} className="flex items-center justify-between border-b pb-4 last:border-0">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={venue.images[0]}
+                              alt={venue.name}
+                              className="w-12 h-12 rounded-lg object-cover"
+                            />
+                            <div>
+                              <p className="font-medium">{venue.name}</p>
+                              <p className="text-sm text-gray-600">{venue.location}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">₹{venue.price.toLocaleString()}</p>
+                            <p className="text-sm text-gray-600">{venue.bookings || 0} bookings</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
 
               <TabsContent value="venues" className="p-6">
                 {isLoading ? (
@@ -140,8 +271,18 @@ const Dashboard = () => {
                           className="w-full h-48 object-cover"
                         />
                         <div className="p-4">
-                          <h3 className="text-lg font-semibold mb-2">{venue.name}</h3>
-                          <p className="text-gray-600 text-sm mb-4">{venue.location}</p>
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="text-lg font-semibold">{venue.name}</h3>
+                            <span className="bg-brand-blue/10 text-brand-blue text-xs px-2 py-1 rounded-full">
+                              {venue.bookings || 0} bookings
+                            </span>
+                          </div>
+                          <p className="text-gray-600 text-sm mb-2">{venue.location}</p>
+                          <div className="flex items-center gap-2 mb-4">
+                            <span className="text-yellow-500">★</span>
+                            <span className="font-medium">{venue.rating.toFixed(1)}</span>
+                            <span className="text-gray-500">({venue.reviews || 0} reviews)</span>
+                          </div>
                           <div className="flex justify-between items-center">
                             <p className="text-brand-blue font-medium">
                               ₹{venue.price.toLocaleString()}/day
@@ -188,30 +329,30 @@ const Dashboard = () => {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b">
+                        <th className="text-left py-3 px-4">Booking ID</th>
+                        <th className="text-left py-3 px-4">Customer</th>
                         <th className="text-left py-3 px-4">Venue</th>
                         <th className="text-left py-3 px-4">Date</th>
-                        <th className="text-left py-3 px-4">Time</th>
-                        <th className="text-left py-3 px-4">Status</th>
                         <th className="text-left py-3 px-4">Amount</th>
+                        <th className="text-left py-3 px-4">Status</th>
                         <th className="text-left py-3 px-4">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {bookings.map((booking) => (
                         <tr key={booking.id} className="border-b">
+                          <td className="py-3 px-4">#{booking.id}</td>
+                          <td className="py-3 px-4">{booking.customerName}</td>
                           <td className="py-3 px-4">{booking.venueName}</td>
-                          <td className="py-3 px-4">{booking.date}</td>
-                          <td className="py-3 px-4">{booking.time}</td>
+                          <td className="py-3 px-4">{format(new Date(booking.date), 'PP')}</td>
+                          <td className="py-3 px-4">₹{booking.amount.toLocaleString()}</td>
                           <td className="py-3 px-4">
                             <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                              booking.status === "confirmed"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
+                              getStatusColor(booking.status)
                             }`}>
                               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                             </span>
                           </td>
-                          <td className="py-3 px-4">₹{booking.amount.toLocaleString()}</td>
                           <td className="py-3 px-4">
                             <ButtonCustom variant="outline" size="sm">
                               View Details
@@ -225,11 +366,35 @@ const Dashboard = () => {
               </TabsContent>
 
               <TabsContent value="analytics" className="p-6">
-                <div className="text-center py-12">
-                  <h3 className="text-lg font-medium mb-2">Analytics Coming Soon</h3>
-                  <p className="text-gray-600">
-                    We're working on bringing you detailed analytics and insights about your venues and bookings.
-                  </p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-lg border p-6">
+                    <h3 className="text-lg font-semibold mb-4">Revenue & Bookings</h3>
+                    <Line data={analyticsData} options={analyticsOptions} />
+                  </div>
+
+                  <div className="bg-white rounded-lg border p-6">
+                    <h3 className="text-lg font-semibold mb-4">Top Performing Venues</h3>
+                    <div className="space-y-4">
+                      {venues.slice(0, 5).map((venue: any, index) => (
+                        <div key={venue.id} className="flex items-center gap-4 border-b pb-4 last:border-0">
+                          <span className="text-lg font-bold text-gray-400">#{index + 1}</span>
+                          <img
+                            src={venue.images[0]}
+                            alt={venue.name}
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{venue.name}</p>
+                            <p className="text-sm text-gray-600">{venue.location}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">₹{venue.price.toLocaleString()}</p>
+                            <p className="text-sm text-green-600">+15% this month</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
