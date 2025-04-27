@@ -42,7 +42,6 @@ export const Footer = () => {
       { label: "Facebook", url: "https://facebook.com" },
       { label: "Twitter", url: "https://twitter.com" },
       { label: "Instagram", url: "https://instagram.com" },
-      { label: "LinkedIn", url: "https://linkedin.com" },
     ],
   };
 
