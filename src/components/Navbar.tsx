@@ -1,12 +1,25 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ButtonCustom } from "./ui/button-custom";
-import { Search, X } from "lucide-react";
+import { Search, X, Menu, Bell, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Navbar = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -17,12 +30,29 @@ export const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle search logic here
-    console.log({ searchQuery });
+    navigate(`/venues?search=${encodeURIComponent(searchQuery)}`);
     setIsSearchOpen(false);
+    setSearchQuery("");
   };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/auth");
+  };
+
+  const navLinks = [
+    { path: "/home", label: "Home" },
+    { path: "/venues", label: "Venues" },
+    { path: "/events", label: "Events" },
+    { path: "/about", label: "About" },
+    { path: "/contact", label: "Contact" },
+  ];
 
   return (
     <nav
@@ -41,42 +71,24 @@ export const Navbar = () => {
             </span>
           </Link>
 
-          {/* Navigation Links - Hidden on Mobile */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link
-              to="/home"
-              className="text-gray-800 hover:text-brand-blue transition-colors"
-            >
-              Home
-            </Link>
-            <Link
-              to="/venues"
-              className="text-gray-800 hover:text-brand-blue transition-colors"
-            >
-              Venues
-            </Link>
-            <Link
-              to="/about"
-              className="text-gray-800 hover:text-brand-blue transition-colors"
-            >
-              About
-            </Link>
-            <Link
-              to="/contact"
-              className="text-gray-800 hover:text-brand-blue transition-colors"
-            >
-              Contact
-            </Link>
-            <Link
-              to="/dashboard"
-              className="text-gray-800 hover:text-brand-blue transition-colors"
-            >
-              Dashboard
-            </Link>
+            {navLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`text-gray-800 hover:text-brand-blue transition-colors ${
+                  location.pathname === link.path ? "text-brand-blue font-medium" : ""
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
-          {/* Search Button */}
-          <div className="flex items-center">
+          {/* Right Section */}
+          <div className="flex items-center gap-4">
+            {/* Search Button */}
             <button
               onClick={() => setIsSearchOpen(!isSearchOpen)}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -87,6 +99,55 @@ export const Navbar = () => {
               ) : (
                 <Search className="h-5 w-5" />
               )}
+            </button>
+
+            {/* User Menu */}
+            {user ? (
+              <div className="flex items-center gap-4">
+                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors relative">
+                  <Bell className="h-5 w-5" />
+                  <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
+                </button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 hover:bg-gray-100 rounded-full p-2 transition-colors">
+                      <User className="h-5 w-5" />
+                      <span className="hidden sm:block">{user.name}</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/profile")}>
+                      Profile Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ) : (
+              <ButtonCustom
+                variant="gold"
+                size="sm"
+                onClick={() => navigate("/auth")}
+              >
+                Sign In
+              </ButtonCustom>
+            )}
+
+            {/* Mobile Menu Button */}
+            <button
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors md:hidden"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              <Menu className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -118,6 +179,56 @@ export const Navbar = () => {
               </ButtonCustom>
             </div>
           </form>
+        </div>
+
+        {/* Mobile Menu */}
+        <div
+          className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity md:hidden ${
+            isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <div
+            className={`absolute right-0 top-0 h-full w-64 bg-white shadow-lg transition-transform ${
+              isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Menu</h2>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    className={`block py-2 hover:text-brand-blue transition-colors ${
+                      location.pathname === link.path ? "text-brand-blue font-medium" : ""
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                {user && (
+                  <Link
+                    to="/dashboard"
+                    className={`block py-2 hover:text-brand-blue transition-colors ${
+                      location.pathname === "/dashboard" ? "text-brand-blue font-medium" : ""
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </nav>
