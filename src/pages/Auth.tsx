@@ -16,7 +16,7 @@ const Auth = () => {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login, signup, continueAsGuest } = useAuth();
+  const { login, loginWithGoogle, signup, continueAsGuest } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +50,27 @@ const Auth = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true);
+      await loginWithGoogle();
+      toast({
+        title: "Logged in successfully",
+        description: "Welcome to Super Events!",
+        variant: "default",
+      });
+      navigate("/home");
+    } catch (error) {
+      toast({
+        title: "Google login failed",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGuestAccess = () => {
     continueAsGuest();
     toast({
@@ -58,15 +79,6 @@ const Auth = () => {
       variant: "default",
     });
     navigate("/home");
-  };
-
-  const handleGoogleLogin = () => {
-    // Google login implementation will go here
-    toast({
-      title: "Google login",
-      description: "Coming soon!",
-      variant: "default",
-    });
   };
 
   const checkPasswordStrength = (password: string) => {
@@ -303,7 +315,8 @@ const Auth = () => {
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  className="w-full bg-white border border-gray-300 rounded-md py-3 px-4 flex items-center justify-center text-sm text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                  disabled={isLoading}
+                  className="w-full bg-white border border-gray-300 rounded-md py-3 px-4 flex items-center justify-center text-sm text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <img
                     src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
@@ -319,6 +332,7 @@ const Auth = () => {
                   size="lg"
                   className="w-full"
                   onClick={handleGuestAccess}
+                  disabled={isLoading}
                 >
                   Continue as Guest
                 </ButtonCustom>
