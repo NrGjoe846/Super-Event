@@ -145,23 +145,23 @@ const Contact = () => {
                   <div>
                     <h3 className="text-lg font-medium mb-2">Office Address</h3>
                     <p className="text-gray-600">
-                      123 Super Events Tower<br />
-                      MG Road, Bangalore<br />
-                      Karnataka, India 560001
+                      Dr. M G R Educational and Research Institute<br />
+                      Poonamalle High Road, Vishwas Nagar,<br />
+                      Maduravoyal, Chennai - 600095
                     </p>
                   </div>
 
                   <div>
                     <h3 className="text-lg font-medium mb-2">Email</h3>
-                    <a href="mailto:support@superevents.com" className="text-brand-blue hover:underline">
-                      support@superevents.com
+                    <a href="mailto:smrtmunaf119@gmail.com" className="text-brand-blue hover:underline">
+                      smrtmunaf119@gmail.com
                     </a>
                   </div>
 
                   <div>
                     <h3 className="text-lg font-medium mb-2">Phone</h3>
-                    <a href="tel:+919876543210" className="text-brand-blue hover:underline">
-                      +91 98765 43210
+                    <a href="tel:+916369682446" className="text-brand-blue hover:underline">
+                      +91 63696 82446
                     </a>
                   </div>
 
