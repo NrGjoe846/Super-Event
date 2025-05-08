@@ -44,9 +44,8 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const analytics = getAnalytics(app);
-
-// Initialize Firestore with persistence enabled
 export const db = getFirestore(app);
+export const rtdb = getDatabase(app);
 
 // Enable offline persistence for Firestore
 if (typeof window !== 'undefined') {
@@ -54,20 +53,11 @@ if (typeof window !== 'undefined') {
     cacheSizeBytes: CACHE_SIZE_UNLIMITED
   }).catch((err) => {
     if (err.code === 'failed-precondition') {
-      // Multiple tabs open, persistence can only be enabled in one tab at a time.
       console.warn('Multiple tabs open, persistence disabled');
     } else if (err.code === 'unimplemented') {
-      // The current browser doesn't support persistence
       console.warn('Browser does not support persistence');
     }
   });
-}
-
-export const rtdb = getDatabase(app);
-
-// Enable verbose logging in development
-if (process.env.NODE_ENV === 'development') {
-  enableLogging(true);
 }
 
 // Collections
@@ -75,37 +65,6 @@ export const venuesCollection = collection(db, 'venues');
 export const venuesRef = ref(rtdb, 'venues');
 export const onlineUsersRef = ref(rtdb, 'online');
 export const presenceRef = ref(rtdb, '.info/connected');
-
-// Handle user presence
-export const setupPresence = (userId: string) => {
-  const userStatusRef = ref(rtdb, `status/${userId}`);
-  const userRef = ref(rtdb, `users/${userId}`);
-
-  onValue(presenceRef, (snapshot) => {
-    if (snapshot.val()) {
-      // User is online
-      const presence = {
-        status: 'online',
-        lastSeen: rtdbServerTimestamp(),
-        deviceInfo: {
-          userAgent: navigator.userAgent,
-          language: navigator.language,
-          platform: navigator.platform
-        }
-      };
-
-      // When client disconnects, update the status
-      onDisconnect(userStatusRef).set({
-        status: 'offline',
-        lastSeen: rtdbServerTimestamp()
-      });
-
-      // Set the current status
-      set(userStatusRef, presence);
-      set(userRef, { ...presence, id: userId });
-    }
-  });
-};
 
 // Error reporting function
 export const logError = async (error: Error, context?: any) => {
