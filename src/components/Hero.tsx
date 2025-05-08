@@ -11,11 +11,6 @@ export const Hero = () => {
 
   const slides = [
     {
-      image: "https://images.unsplash.com/photo-1524492412937-b28074a5d7da?q=80&w=2071&auto=format&fit=crop",
-      title: "Discover Perfect Indian Venues",
-      description: "Explore magnificent spaces for weddings, corporate events, and traditional celebrations across India.",
-    },
-    {
       image: "https://images.unsplash.com/photo-1514222134-b57cbb8ce073?q=80&w=2036&auto=format&fit=crop",
       title: "Exceptional Corporate Events",
       description: "Host impactful business meetings and conferences in India's premier venues and heritage properties.",
@@ -79,7 +74,12 @@ export const Hero = () => {
               >
                 Explore Venues
               </ButtonCustom>
-              <ButtonCustom variant="outline" size="lg" className="min-w-[180px] border-white text-white hover:bg-white/10">
+              <ButtonCustom 
+                variant="outline" 
+                size="lg" 
+                className="min-w-[180px] border-white text-white hover:bg-white/10"
+                onClick={() => navigate("/venues")}
+              >
                 List Your Venue
               </ButtonCustom>
             </div>
@@ -108,7 +108,6 @@ export const Hero = () => {
         isOpen={isSearchModalOpen} 
         onOpenChange={setIsSearchModalOpen} 
         onSearch={(filters) => {
-          console.log("Search filters:", filters);
           navigate("/venues", { state: { filters } });
         }}
       />
