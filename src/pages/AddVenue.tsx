@@ -194,7 +194,7 @@ const AddVenue = () => {
 
       toast({
         title: "Venue Added Successfully",
-        description: "Your venue has been listed on GatherHaven",
+        description: "Your venue has been listed on Super Events",
       });
 
       // Clean up image URLs
@@ -220,22 +220,22 @@ const AddVenue = () => {
     setFormErrors(prev => ({ ...prev, [name]: "" }));
   };
 
-  if (!user || !user.isVenueOwner) {
+  if (!user) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-grow flex items-center justify-center p-4">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+            <h2 className="text-2xl font-bold mb-4">Sign In Required</h2>
             <p className="text-gray-600 mb-6">
-              You need to be logged in as a venue owner to access this page.
+              Please sign in to add a venue
             </p>
             <ButtonCustom 
               variant="primary" 
               onClick={() => navigate("/auth")}
-              aria-label="Login as venue owner"
+              aria-label="Sign in"
             >
-              Login as Venue Owner
+              Sign In
             </ButtonCustom>
           </div>
         </main>
@@ -252,7 +252,7 @@ const AddVenue = () => {
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Add Your Venue</h1>
             <p className="text-gray-600">
-              List your venue on GatherHaven and reach thousands of potential customers
+              List your venue on Super Events and reach thousands of potential customers
             </p>
           </div>
 
