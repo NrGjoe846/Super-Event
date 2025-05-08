@@ -6,16 +6,23 @@ import {
   query, 
   where, 
   onSnapshot, 
-  getDocs 
+  getDocs,
+  serverTimestamp,
+  writeBatch,
+  increment,
+  arrayUnion,
+  arrayRemove 
 } from "firebase/firestore";
 import { 
   ref, 
   set, 
   remove, 
   onValue, 
-  push 
+  push,
+  update,
+  serverTimestamp as rtdbServerTimestamp
 } from "firebase/database";
-import { db, rtdb, venuesCollection, venuesRef } from "@/lib/firebase";
+import { db, rtdb, venuesCollection, venuesRef, logError, logAnalyticsEvent } from "@/lib/firebase";
 
 export interface VenueFormData {
   name: string;
@@ -49,26 +56,57 @@ type VenueSubscriber = (venues: Venue[]) => void;
 const subscribers = new Set<VenueSubscriber>();
 
 export const subscribeToVenues = (subscriber: VenueSubscriber) => {
-  // Subscribe to Firestore updates
-  const unsubscribeFirestore = onSnapshot(venuesCollection, (snapshot) => {
-    const venues = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Venue));
-    subscriber(venues);
-  });
+  let retryCount = 0;
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 2000;
 
-  // Subscribe to Realtime Database updates
-  const unsubscribeRTDB = onValue(venuesRef, (snapshot) => {
-    const venues = [];
-    snapshot.forEach((childSnapshot) => {
-      venues.push({
-        id: childSnapshot.key,
-        ...childSnapshot.val()
-      });
-    });
-    subscriber(venues);
-  });
+  const setupFirestoreSubscription = () => {
+    return onSnapshot(
+      venuesCollection,
+      (snapshot) => {
+        const venues = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Venue));
+        subscriber(venues);
+        retryCount = 0; // Reset retry count on successful connection
+      },
+      (error) => {
+        logError(error, { source: 'Firestore subscription' });
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(setupFirestoreSubscription, RETRY_DELAY);
+          retryCount++;
+        }
+      }
+    );
+  };
+
+  const setupRTDBSubscription = () => {
+    return onValue(
+      venuesRef,
+      (snapshot) => {
+        const venues = [];
+        snapshot.forEach((childSnapshot) => {
+          venues.push({
+            id: childSnapshot.key,
+            ...childSnapshot.val()
+          });
+        });
+        subscriber(venues);
+        retryCount = 0;
+      },
+      (error) => {
+        logError(error, { source: 'RTDB subscription' });
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(setupRTDBSubscription, RETRY_DELAY);
+          retryCount++;
+        }
+      }
+    );
+  };
+
+  const unsubscribeFirestore = setupFirestoreSubscription();
+  const unsubscribeRTDB = setupRTDBSubscription();
 
   return () => {
     unsubscribeFirestore();
@@ -101,29 +139,57 @@ export const getVenueById = async (id: string): Promise<Venue> => {
 };
 
 export const addVenue = async (formData: VenueFormData, ownerId: string): Promise<Venue> => {
-  const timestamp = new Date().toISOString();
-  const venueData = {
-    ...formData,
-    price: parseInt(formData.price),
-    featured: false,
-    rating: 0,
-    owner_id: ownerId,
-    created_at: timestamp,
-    updated_at: timestamp,
-  };
+  const batch = writeBatch(db);
+  const timestamp = serverTimestamp();
 
-  // Add to Firestore
-  const docRef = await addDoc(venuesCollection, venueData);
-  const newVenue = { id: docRef.id, ...venueData } as Venue;
+  try {
+    const venueData = {
+      ...formData,
+      price: parseInt(formData.price),
+      featured: false,
+      rating: 0,
+      owner_id: ownerId,
+      created_at: timestamp,
+      updated_at: timestamp,
+      booking_count: 0,
+      view_count: 0
+    };
 
-  // Add to Realtime Database
-  const newVenueRef = push(venuesRef);
-  await set(newVenueRef, {
-    ...newVenue,
-    id: newVenueRef.key
-  });
+    // Add to Firestore
+    const docRef = doc(venuesCollection);
+    batch.set(docRef, venueData);
 
-  return newVenue;
+    // Update user's venue count
+    const userRef = doc(db, 'users', ownerId);
+    batch.update(userRef, {
+      venue_count: increment(1),
+      venues: arrayUnion(docRef.id)
+    });
+
+    await batch.commit();
+
+    // Add to Realtime Database
+    const rtdbRef = ref(rtdb, `venues/${docRef.id}`);
+    await set(rtdbRef, {
+      ...venueData,
+      id: docRef.id,
+      rtdb_timestamp: rtdbServerTimestamp()
+    });
+
+    logAnalyticsEvent('venue_created', {
+      venue_id: docRef.id,
+      owner_id: ownerId
+    });
+
+    return { id: docRef.id, ...venueData } as Venue;
+  } catch (error) {
+    logError(error as Error, {
+      action: 'addVenue',
+      ownerId,
+      formData
+    });
+    throw error;
+  }
 };
 
 export const updateVenue = async (
