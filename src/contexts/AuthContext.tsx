@@ -1,8 +1,16 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from '@/lib/supabase';
+import { auth } from '@/lib/firebase';
+import { 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
 import { useToast } from "@/hooks/use-toast";
-import { User } from '@supabase/supabase-js';
 
 interface AuthUser {
   id: string;
@@ -26,20 +34,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const createUserObject = async (user: User, isVenueOwner = false): Promise<AuthUser> => {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
+const createUserObject = (user: FirebaseUser, isVenueOwner = false): AuthUser => {
   return {
-    id: user.id,
-    name: profile?.name || user.email?.split('@')[0] || 'User',
+    id: user.uid,
+    name: user.displayName || user.email?.split('@')[0] || 'User',
     email: user.email || '',
     isGuest: false,
-    isVenueOwner: profile?.is_venue_owner || isVenueOwner,
-    photoURL: profile?.avatar_url
+    isVenueOwner: isVenueOwner,
+    photoURL: user.photoURL || undefined
   };
 };
 
@@ -50,9 +52,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const userObject = await createUserObject(session.user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userObject = createUserObject(firebaseUser);
         setUser(userObject);
       } else {
         setUser(null);
@@ -60,21 +62,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-
-      const userObject = await createUserObject(data.user);
+      const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
+      const userObject = createUserObject(firebaseUser);
       setUser(userObject);
     } catch (error: any) {
       console.error("Login error:", error);
@@ -84,14 +78,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (error) throw error;
+      const provider = new GoogleAuthProvider();
+      const { user: firebaseUser } = await signInWithPopup(auth, provider);
+      const userObject = createUserObject(firebaseUser);
+      setUser(userObject);
     } catch (error: any) {
       console.error("Google login error:", error);
       throw new Error(error.message || "Failed to login with Google");
@@ -100,37 +90,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signup = async (name: string, email: string, password: string, isVenueOwner: boolean) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            is_venue_owner: isVenueOwner
-          }
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              name,
-              is_venue_owner: isVenueOwner,
-              created_at: new Date()
-            }
-          ]);
-
-        if (profileError) throw profileError;
-
-        const userObject = await createUserObject(data.user, isVenueOwner);
-        setUser(userObject);
-      }
+      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
+      const userObject = createUserObject(firebaseUser, isVenueOwner);
+      setUser(userObject);
     } catch (error: any) {
       console.error("Signup error:", error);
       throw new Error(error.message || "Failed to create account");
@@ -150,9 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
+      await signOut(auth);
       setUser(null);
       navigate('/auth');
     } catch (error) {
