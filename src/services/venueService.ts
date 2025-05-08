@@ -54,17 +54,30 @@ export interface Venue {
 
 type VenueSubscriber = (venues: Venue[]) => void;
 const subscribers = new Set<VenueSubscriber>();
+const cache = new Map<string, Venue>();
 
 export const subscribeToVenues = (subscriber: VenueSubscriber) => {
   subscribers.add(subscriber);
   
+  // If we have cached data, immediately notify the subscriber
+  if (cache.size > 0) {
+    subscriber(Array.from(cache.values()));
+  }
+  
   const unsubscribeFirestore = onSnapshot(
     venuesCollection,
     (snapshot) => {
-      const venues = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Venue));
+      snapshot.docChanges().forEach(change => {
+        const venue = { id: change.doc.id, ...change.doc.data() } as Venue;
+        
+        if (change.type === 'removed') {
+          cache.delete(venue.id);
+        } else {
+          cache.set(venue.id, venue);
+        }
+      });
+      
+      const venues = Array.from(cache.values());
       subscribers.forEach(sub => sub(venues));
     },
     (error) => {
@@ -80,11 +93,19 @@ export const subscribeToVenues = (subscriber: VenueSubscriber) => {
 
 export const getAllVenues = async (): Promise<Venue[]> => {
   try {
+    // Return cached data if available
+    if (cache.size > 0) {
+      return Array.from(cache.values());
+    }
+    
     const snapshot = await getDocs(venuesCollection);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Venue));
+    const venues = snapshot.docs.map(doc => {
+      const venue = { id: doc.id, ...doc.data() } as Venue;
+      cache.set(venue.id, venue);
+      return venue;
+    });
+    
+    return venues;
   } catch (error) {
     logError(error as Error, { action: 'getAllVenues' });
     throw new Error('Failed to fetch venues');
@@ -93,27 +114,24 @@ export const getAllVenues = async (): Promise<Venue[]> => {
 
 export const getVenuesByOwner = async (ownerId: string): Promise<Venue[]> => {
   try {
+    // Check cache first
+    const cachedVenues = Array.from(cache.values()).filter(v => v.owner_id === ownerId);
+    if (cachedVenues.length > 0) {
+      return cachedVenues;
+    }
+    
     const q = query(venuesCollection, where("owner_id", "==", ownerId));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Venue));
+    const venues = snapshot.docs.map(doc => {
+      const venue = { id: doc.id, ...doc.data() } as Venue;
+      cache.set(venue.id, venue);
+      return venue;
+    });
+    
+    return venues;
   } catch (error) {
     logError(error as Error, { action: 'getVenuesByOwner', ownerId });
     throw new Error('Failed to fetch owner venues');
-  }
-};
-
-export const getVenueById = async (id: string): Promise<Venue> => {
-  try {
-    const docRef = doc(db, 'venues', id);
-    const snapshot = await getDocs(query(venuesCollection, where("id", "==", id)));
-    if (snapshot.empty) throw new Error("Venue not found");
-    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Venue;
-  } catch (error) {
-    logError(error as Error, { action: 'getVenueById', id });
-    throw new Error('Failed to fetch venue');
   }
 };
 
@@ -135,6 +153,11 @@ export const addVenue = async (formData: VenueFormData, ownerId: string): Promis
 
     // Add to Firestore
     const docRef = await addDoc(venuesCollection, venueData);
+    const newVenue = { id: docRef.id, ...venueData } as Venue;
+    
+    // Update cache immediately
+    cache.set(docRef.id, newVenue);
+    subscribers.forEach(sub => sub(Array.from(cache.values())));
 
     // Add to Realtime Database for real-time updates
     const rtdbRef = ref(rtdb, `venues/${docRef.id}`);
@@ -149,7 +172,7 @@ export const addVenue = async (formData: VenueFormData, ownerId: string): Promis
       owner_id: ownerId
     });
 
-    return { id: docRef.id, ...venueData } as Venue;
+    return newVenue;
   } catch (error) {
     logError(error as Error, {
       action: 'addVenue',
@@ -174,6 +197,14 @@ export const updateVenue = async (
       updated_at: timestamp
     };
 
+    // Update cache immediately
+    const cachedVenue = cache.get(venueId);
+    if (cachedVenue) {
+      const updatedVenue = { ...cachedVenue, ...updateData };
+      cache.set(venueId, updatedVenue);
+      subscribers.forEach(sub => sub(Array.from(cache.values())));
+    }
+
     // Update in Firestore
     await updateDoc(venueRef, updateData);
 
@@ -181,8 +212,7 @@ export const updateVenue = async (
     const rtdbRef = ref(rtdb, `venues/${venueId}`);
     await update(rtdbRef, updateData);
 
-    const updatedVenue = await getVenueById(venueId);
-    return updatedVenue;
+    return cachedVenue ? { ...cachedVenue, ...updateData } : await getVenueById(venueId);
   } catch (error) {
     logError(error as Error, {
       action: 'updateVenue',
@@ -197,6 +227,10 @@ export const updateVenue = async (
 export const deleteVenue = async (venueId: string, ownerId: string): Promise<void> => {
   try {
     const batch = writeBatch(db);
+
+    // Update cache immediately
+    cache.delete(venueId);
+    subscribers.forEach(sub => sub(Array.from(cache.values())));
 
     // Delete from Firestore
     const venueRef = doc(db, 'venues', venueId);
@@ -226,5 +260,26 @@ export const deleteVenue = async (venueId: string, ownerId: string): Promise<voi
       ownerId
     });
     throw new Error('Failed to delete venue');
+  }
+};
+
+export const getVenueById = async (id: string): Promise<Venue> => {
+  try {
+    // Check cache first
+    const cachedVenue = cache.get(id);
+    if (cachedVenue) {
+      return cachedVenue;
+    }
+    
+    const docRef = doc(db, 'venues', id);
+    const snapshot = await getDocs(query(venuesCollection, where("id", "==", id)));
+    if (snapshot.empty) throw new Error("Venue not found");
+    
+    const venue = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Venue;
+    cache.set(id, venue);
+    return venue;
+  } catch (error) {
+    logError(error as Error, { action: 'getVenueById', id });
+    throw new Error('Failed to fetch venue');
   }
 };
