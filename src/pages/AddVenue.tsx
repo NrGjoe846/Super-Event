@@ -5,7 +5,7 @@ import { ButtonCustom } from "../components/ui/button-custom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { addVenue } from "@/services/venueService";
+import { addDetailedVenue } from "@/services/venueService"; // Changed import
 import { motion, AnimatePresence } from "framer-motion";
 
 const AddVenue = () => {
@@ -13,8 +13,9 @@ const AddVenue = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [images, setImages] = useState<string[]>([]);
-  const [imageLink, setImageLink] = useState("");
+  const [images, setImages] = useState<string[]>([]); // For preview URLs
+  const [imageFilesToUpload, setImageFilesToUpload] = useState<File[]>([]); // For actual File objects
+  // const [imageLink, setImageLink] = useState(""); // Removed imageLink state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -26,6 +27,17 @@ const AddVenue = () => {
     amenities: [] as string[],
     availability: [] as string[],
   });
+
+  useEffect(() => {
+    // Cleanup object URLs
+    return () => {
+      images.forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [images]); // Rerun if images array changes, though unmount is key for final cleanup
 
   const availableAmenities = [
     "WiFi",
@@ -116,93 +128,59 @@ const AddVenue = () => {
     if (!files) return;
 
     const maxSize = 5 * 1024 * 1024; // 5MB
-    const validFiles = Array.from(files).filter(file => {
+    const currentTotalImages = images.length + imageFilesToUpload.length;
+
+    if (currentTotalImages + files.length > 5) {
+      toast({
+        title: "Too many images",
+        description: "Maximum 5 images allowed in total.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newFileObjects: File[] = [];
+    const newPreviewUrls: string[] = [];
+
+    Array.from(files).forEach(file => {
       if (!file.type.startsWith('image/')) {
         toast({
           title: "Invalid file type",
-          description: `${file.name} is not an image`,
+          description: `${file.name} is not an image.`,
           variant: "destructive",
         });
-        return false;
+        return; // Skip this file
       }
       if (file.size > maxSize) {
         toast({
           title: "File too large",
-          description: `${file.name} exceeds 5MB limit`,
+          description: `${file.name} exceeds 5MB limit.`,
           variant: "destructive",
         });
-        return false;
+        return; // Skip this file
       }
-      return true;
+      newFileObjects.push(file);
+      newPreviewUrls.push(URL.createObjectURL(file));
     });
-
-    if (images.length + validFiles.length > 5) {
-      toast({
-        title: "Too many images",
-        description: "Maximum 5 images allowed",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Process images in parallel
-    const imagePromises = validFiles.map(file => {
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    });
-
-    try {
-      const newImages = await Promise.all(imagePromises);
-      setImages(prev => [...prev, ...newImages]);
-      setFormErrors(prev => ({ ...prev, images: "" }));
-    } catch (error) {
-      toast({
-        title: "Error processing images",
-        description: "Please try again",
-        variant: "destructive",
-      });
+    
+    if (images.length + newPreviewUrls.length <= 5) {
+        setImages(prev => [...prev, ...newPreviewUrls]);
+        setImageFilesToUpload(prev => [...prev, ...newFileObjects]);
+        if (newPreviewUrls.length > 0) {
+            setFormErrors(prev => ({ ...prev, images: "" }));
+        }
+    } else {
+        // This case should ideally not be hit if initial check is correct, but as a safeguard:
+        newPreviewUrls.forEach(url => URL.revokeObjectURL(url)); // Clean up URLs for files not added
+        toast({
+            title: "Could not add all images",
+            description: "Maximum of 5 images allowed.",
+            variant: "destructive",
+        });
     }
   };
 
-  const handleImageLinkAdd = () => {
-    if (!imageLink.trim()) {
-      toast({
-        title: "Invalid image link",
-        description: "Please enter a valid image URL",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (images.length >= 5) {
-      toast({
-        title: "Too many images",
-        description: "Maximum 5 images allowed",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate image URL
-    const img = new Image();
-    img.onload = () => {
-      setImages(prev => [...prev, imageLink]);
-      setImageLink("");
-      setFormErrors(prev => ({ ...prev, images: "" }));
-    };
-    img.onerror = () => {
-      toast({
-        title: "Invalid image URL",
-        description: "Please enter a valid image URL",
-        variant: "destructive",
-      });
-    };
-    img.src = imageLink;
-  };
+  // handleImageLinkAdd function removed
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,21 +192,26 @@ const AddVenue = () => {
     setIsSubmitting(true);
 
     try {
-      await addVenue(
-        {
-          ...formData,
-          price: Number(formData.price),
-          images,
-        },
-        user!.id
-      );
+      const venueData = {
+        venueName: formData.name,
+        location: formData.location,
+        capacity: formData.capacity,
+        description: formData.description,
+        price: Number(formData.price),
+        amenities: formData.amenities,
+        availability: formData.availability,
+        imageFiles: imageFilesToUpload, // Pass File objects
+        userId: user?.id, // Pass user ID if available
+      };
+      // @ts-ignore 
+      const venueId = await addDetailedVenue(venueData);
 
       toast({
         title: "Venue Added Successfully",
         description: "Your venue has been listed on Super Events",
       });
 
-      navigate("/venues");
+      navigate("/venues"); // Navigate to general venues page
     } catch (error) {
       toast({
         title: "Error Adding Venue",
@@ -248,28 +231,8 @@ const AddVenue = () => {
     setFormErrors(prev => ({ ...prev, [name]: "" }));
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-grow flex items-center justify-center p-4">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">Sign In Required</h2>
-            <p className="text-gray-600 mb-6">
-              Please sign in to add a venue
-            </p>
-            <ButtonCustom 
-              variant="primary" 
-              onClick={() => navigate("/auth")}
-            >
-              Sign In
-            </ButtonCustom>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  // Removed the !user check to allow guest submissions
+  // if (!user) { ... }
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -407,36 +370,24 @@ const AddVenue = () => {
           >
             <h2 className="text-xl font-semibold mb-4">Venue Images</h2>
             <div className="space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={imageLink}
-                  onChange={(e) => setImageLink(e.target.value)}
-                  placeholder="Enter image URL"
-                  className="flex-1 px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
-                />
-                <ButtonCustom
-                  type="button"
-                  variant="primary"
-                  onClick={handleImageLinkAdd}
-                  disabled={!imageLink.trim()}
-                >
-                  Add Link
-                </ButtonCustom>
-              </div>
-
+              {/* Removed Image Link Input and Button */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {images.map((image, index) => (
+                {images.map((previewUrl, index) => (
                   <div key={index} className="relative aspect-video rounded-lg overflow-hidden">
                     <img
-                      src={image}
+                      src={previewUrl} // This is a blob URL
                       alt={`Venue preview ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
                     <button
                       type="button"
                       onClick={() => {
+                        const urlToRemove = images[index];
+                        if (urlToRemove.startsWith('blob:')) {
+                          URL.revokeObjectURL(urlToRemove);
+                        }
                         setImages(prev => prev.filter((_, i) => i !== index));
+                        setImageFilesToUpload(prev => prev.filter((_, i) => i !== index));
                       }}
                       className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
                     >
@@ -447,8 +398,8 @@ const AddVenue = () => {
                 {images.length < 5 && (
                   <label className="relative aspect-video rounded-lg border-2 border-dashed border-gray-300 hover:border-brand-blue/50 transition-colors cursor-pointer flex items-center justify-center">
                     <div className="text-center">
-                      <div className="text-gray-600 mb-2">Add Image</div>
-                      <div className="text-xs text-gray-500">Click to upload</div>
+                      <div className="text-gray-600 mb-2">Add Image(s)</div> {/* Changed text slightly */}
+                      <div className="text-xs text-gray-500">Click to upload (max 5)</div>
                     </div>
                     <input
                       type="file"
