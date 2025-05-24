@@ -12,8 +12,8 @@ import {
   startAfter,
   DocumentData,
   QueryDocumentSnapshot,
-  Timestamp, // Ensuring Timestamp is explicitly imported
-  onSnapshot // For real-time updates
+  onSnapshot, // For real-time updates
+  where
 } from 'firebase/firestore';
 import { db } from '../lib/firebase'; // Assuming db is exported from firebase.ts
 import { uploadImages } from './storageService'; // Import for image uploading
@@ -48,6 +48,22 @@ export interface DetailedVenueData {
   imageFiles: File[]; // Files to be uploaded
   userId?: string; // Optional user ID
 }
+
+// Get venues by owner ID
+export const getVenuesByOwner = async (ownerId: string): Promise<Venue[]> => {
+  try {
+    const q = query(
+      collection(db, VENUES_COLLECTION),
+      where('submittedBy', '==', ownerId),
+      orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Venue));
+  } catch (error) {
+    console.error("Error getting venues by owner: ", error);
+    throw error;
+  }
+};
 
 // Create a new venue
 export const addVenue = async (venueData: Omit<Venue, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
