@@ -70,7 +70,7 @@ const VenueList: React.FC<VenueListProps> = ({ onEditVenue, onAddVenue, refreshK
       // or a `QueryDocumentSnapshot` for subsequent pages (`startAfter` cursor).
       const { venues: fetchedVenues, lastVisible } = await getVenues(PAGE_LIMIT, newLastVisible);
       
-      if (fetchedVenues.length > 0) {
+      if (fetchedVenues?.length > 0) {
         setVenues(fetchedVenues);
         setLastVisibleVenue(lastVisible); // Store the snapshot of the last doc on the fetched page
         
@@ -114,7 +114,6 @@ const VenueList: React.FC<VenueListProps> = ({ onEditVenue, onAddVenue, refreshK
         if (currentPage > 1) setCurrentPage(prev => prev - 1);
         // If stack is now empty, it means we've returned to page 1
         if(firstVisibleVenueStack.length === 0 && newLastVisible === undefined) setCurrentPage(1);
-
       } else if (direction === 'reset') {
         setCurrentPage(1);
       }
@@ -134,7 +133,6 @@ const VenueList: React.FC<VenueListProps> = ({ onEditVenue, onAddVenue, refreshK
     }
   }, [lastVisibleVenue, currentPage, firstVisibleVenueStack]);
 
-
   // Helper to create a simplified snapshot for pagination state (Illustrative)
   // IMPORTANT: This is a placeholder. `getVenues` should ideally return full QueryDocumentSnapshot objects
   // for robust pagination, especially for the `startAfter` cursor.
@@ -148,7 +146,6 @@ const VenueList: React.FC<VenueListProps> = ({ onEditVenue, onAddVenue, refreshK
     // console.warn("querySnapshotToSimplified is illustrative and not central to the pagination logic if using actual snapshots.");
     return venue as unknown as QueryDocumentSnapshot<DocumentData>;
   };
-
 
   useEffect(() => {
     fetchVenues('reset');
@@ -242,12 +239,12 @@ const VenueList: React.FC<VenueListProps> = ({ onEditVenue, onAddVenue, refreshK
                     <AlertDialogHeader>
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the venue "<span className="font-semibold">{venue.venueName}</span>".
+                        This action cannot be undone. This will permanently delete the venue "{venue.venueName}".
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeleteVenue(venue.id!)} className="bg-red-600 hover:bg-red-700">
+                      <AlertDialogAction onClick={() => handleDeleteVenue(venue.id)} className="bg-red-600 hover:bg-red-700">
                         Yes, delete venue
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -260,7 +257,7 @@ const VenueList: React.FC<VenueListProps> = ({ onEditVenue, onAddVenue, refreshK
       )}
       
       {/* Show pagination controls if there are venues, or if not on page 1 (e.g. navigating back to an empty page 1), or if loading */}
-      { (venues.length > 0 || currentPage > 1 || isLoading) && 
+      {(venues.length > 0 || currentPage > 1 || isLoading) && 
         <div className="flex justify-center items-center space-x-4 pt-6 pb-2">
           <Button
             variant="outline"
@@ -284,4 +281,3 @@ const VenueList: React.FC<VenueListProps> = ({ onEditVenue, onAddVenue, refreshK
 };
 
 export default VenueList;
-```
