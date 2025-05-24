@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import VenueList from '../components/VenueList';
 import VenueForm from '../components/VenueForm';
 import { Venue } from '../services/venueService';
-import { Button } from '@/components/ui/button'; // Assuming shadcn/ui
+import { Button } from '@/components/ui/button';
 import { PlusCircle, X } from 'lucide-react';
 
 const ManageVenuesPage: React.FC = () => {
@@ -70,4 +70,3 @@ const ManageVenuesPage: React.FC = () => {
 };
 
 export default ManageVenuesPage;
-```
