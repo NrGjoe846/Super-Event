@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import AddVenue from "./pages/AddVenue";
 import Contact from "./pages/Contact";
 import Dashboard from "./pages/Dashboard";
+import ManageVenuesPage from "./pages/ManageVenues"; // Import ManageVenuesPage
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -47,6 +48,7 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/add-venue" element={<AddVenue />} />
+              <Route path="/admin/venues" element={<ManageVenuesPage />} /> {/* New Route */}
             </Route>
             
             <Route path="*" element={<NotFound />} />

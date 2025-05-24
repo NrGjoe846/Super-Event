@@ -28,7 +28,9 @@ import {
   connectDatabaseEmulator,
   enableLogging
 } from "firebase/database";
+import { getStorage } from "firebase/storage"; // For Firebase Storage
 
+// IMPORTANT: Move this configuration to environment variables for production!
 const firebaseConfig = {
   apiKey: "AIzaSyBdWZ_RJfLu8ViSvizBEQUgkl7El6s3wgs",
   authDomain: "super-event-91cc3.firebaseapp.com",
@@ -46,6 +48,7 @@ export const auth = getAuth(app);
 export const analytics = getAnalytics(app);
 export const db = getFirestore(app);
 export const rtdb = getDatabase(app);
+export const storage = getStorage(app); // For Firebase Storage
 
 // Enable offline persistence for Firestore
 if (typeof window !== 'undefined') {
