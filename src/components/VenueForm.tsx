@@ -7,7 +7,7 @@ import { Input } from './ui/input';   // Assuming shadcn/ui input
 import { Textarea } from './ui/textarea'; // Assuming shadcn/ui textarea
 import { Label } from './ui/label';   // Assuming shadcn/ui label
 import { toast } from 'sonner';      // Assuming sonner for toasts
-import { Venue, addVenue, editVenue } from '../services/venueService';
+import { Venue, addDetailedVenue as addVenue, editVenue } from '../services/venueService';
 
 // Schema for form validation using Zod
 const venueSchema = z.object({
