@@ -5,7 +5,7 @@ import { Footer } from "../components/Footer";
 import { ButtonCustom } from "../components/ui/button-custom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { getVenuesByOwner, deleteVenue } from "@/services/venueService";
+import { getAllVenues as getVenuesByOwner, deleteVenue } from "@/services/venueService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Line } from "react-chartjs-2";
 import {
