@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Venue, getVenues, deleteVenue } from '../services/venueService';
+import { Venue, getAllVenues as getVenues, deleteVenue } from '../services/venueService';
 import { Button } from './ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from './ui/card'; // Assuming shadcn/ui card
 import { toast } from 'sonner';
