@@ -11,12 +11,12 @@ export const Hero = () => {
 
   const slides = [
     {
-      image: "https://images.unsplash.com/photo-1514222134-b57cbb8ce073?q=80&w=2036&auto=format&fit=crop",
+      image: "https://images.pexels.com/photos/169198/pexels-photo-169198.jpeg",
       title: "Exceptional Corporate Events",
       description: "Host impactful business meetings and conferences in India's premier venues and heritage properties.",
     },
     {
-      image: "https://images.unsplash.com/photo-1598386651573-9232cc0c2d6c?q=80&w=2070&auto=format&fit=crop",
+      image: "https://images.pexels.com/photos/1779415/pexels-photo-1779415.jpeg",
       title: "Celebrate Special Moments",
       description: "Create unforgettable experiences for traditional Indian weddings, birthdays, and cultural celebrations.",
     },
