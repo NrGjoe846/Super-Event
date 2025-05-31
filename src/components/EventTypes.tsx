@@ -1,4 +1,3 @@
-
 import { ButtonCustom } from "./ui/button-custom";
 
 export const EventTypes = () => {
@@ -19,7 +18,7 @@ export const EventTypes = () => {
           {/* Wedding Card */}
           <div className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale">
             <img 
-              src="https://images.unsplash.com/photo-1583939003579-730e3918a45a?q=80&w=1974&auto=format&fit=crop" 
+              src="https://images.pexels.com/photos/3585798/pexels-photo-3585798.jpeg" 
               alt="Indian Wedding Venue" 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
@@ -40,7 +39,7 @@ export const EventTypes = () => {
           {/* Corporate Card */}
           <div className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale">
             <img 
-              src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1974&auto=format&fit=crop" 
+              src="https://images.pexels.com/photos/2977565/pexels-photo-2977565.jpeg" 
               alt="Corporate Venue in India" 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
@@ -61,7 +60,7 @@ export const EventTypes = () => {
           {/* Cultural Events Card */}
           <div className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale">
             <img 
-              src="https://images.unsplash.com/photo-1580069698581-e41df28c6ade?q=80&w=1974&auto=format&fit=crop" 
+              src="https://images.pexels.com/photos/2263436/pexels-photo-2263436.jpeg" 
               alt="Cultural Event Venue" 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
@@ -82,7 +81,7 @@ export const EventTypes = () => {
           {/* Social Card */}
           <div className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale">
             <img 
-              src="https://images.unsplash.com/photo-1564940904267-6ebc55bb0692?q=80&w=1974&auto=format&fit=crop" 
+              src="https://images.pexels.com/photos/587741/pexels-photo-587741.jpeg" 
               alt="Social Event Venue in India" 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
