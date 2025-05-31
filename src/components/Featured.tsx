@@ -9,7 +9,7 @@ export const Featured = () => {
   const venues = [
     {
       id: "1",
-      image: "https://images.unsplash.com/photo-1590596724152-f8aa7b67e637?q=80&w=2072&auto=format&fit=crop",
+      image: "https://images.pexels.com/photos/1045541/pexels-photo-1045541.jpeg",
       name: "Taj Palace Banquet Hall",
       location: "New Delhi, India",
       price: 75000,
@@ -18,7 +18,7 @@ export const Featured = () => {
     },
     {
       id: "2",
-      image: "https://images.unsplash.com/photo-1582972431171-5087a815018b?q=80&w=2070&auto=format&fit=crop",
+      image: "https://images.pexels.com/photos/260928/pexels-photo-260928.jpeg",
       name: "Marine Drive Convention",
       location: "Mumbai, Maharashtra",
       price: 65000,
@@ -26,7 +26,7 @@ export const Featured = () => {
     },
     {
       id: "3",
-      image: "https://images.unsplash.com/photo-1601959124933-71e57ba8f7de?q=80&w=2071&auto=format&fit=crop",
+      image: "https://images.pexels.com/photos/262047/pexels-photo-262047.jpeg",
       name: "Royal Rajputana Heritage",
       location: "Jaipur, Rajasthan",
       price: 82000,
@@ -34,7 +34,7 @@ export const Featured = () => {
     },
     {
       id: "4",
-      image: "https://images.unsplash.com/photo-1596178065887-1198b6148b2b?q=80&w=2070&auto=format&fit=crop",
+      image: "https://images.pexels.com/photos/2291462/pexels-photo-2291462.jpeg",
       name: "Mysore Palace Gardens",
       location: "Mysore, Karnataka",
       price: 120000,
@@ -42,7 +42,7 @@ export const Featured = () => {
     },
     {
       id: "5",
-      image: "https://images.unsplash.com/photo-1586132527833-6fa4ea92429c?q=80&w=2070&auto=format&fit=crop",
+      image: "https://images.pexels.com/photos/2736388/pexels-photo-2736388.jpeg",
       name: "Kerala Backwaters Resort",
       location: "Kochi, Kerala",
       price: 95000,
