@@ -1,4 +1,3 @@
-
 import { ButtonCustom } from "./ui/button-custom";
 
 export const Testimonials = () => {
@@ -11,7 +10,7 @@ export const Testimonials = () => {
           </span>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">What Our Customers Say</h2>
           <p className="text-white/80 max-w-2xl mx-auto">
-            Hear from event planners and venue owners who've experienced the gatherhaven difference
+            Hear from event planners and venue owners who've experienced the Super Events difference
           </p>
         </div>
         
@@ -21,7 +20,7 @@ export const Testimonials = () => {
             <div className="flex items-center mb-4">
               <div className="mr-4">
                 <img 
-                  src="https://randomuser.me/api/portraits/women/32.jpg" 
+                  src="https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg" 
                   alt="Sarah Johnson" 
                   className="w-12 h-12 rounded-full object-cover"
                 />
@@ -32,7 +31,7 @@ export const Testimonials = () => {
               </div>
             </div>
             <p className="italic text-white/90">
-              "gatherhaven made organizing our company retreat so simple. The venue recommendation tool helped us find the perfect lakeside location that impressed everyone."
+              "Super Events made organizing our company retreat so simple. The venue recommendation tool helped us find the perfect lakeside location that impressed everyone."
             </p>
             <div className="mt-4 flex">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -48,7 +47,7 @@ export const Testimonials = () => {
             <div className="flex items-center mb-4">
               <div className="mr-4">
                 <img 
-                  src="https://randomuser.me/api/portraits/men/36.jpg" 
+                  src="https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg" 
                   alt="Michael Chen" 
                   className="w-12 h-12 rounded-full object-cover"
                 />
@@ -59,7 +58,7 @@ export const Testimonials = () => {
               </div>
             </div>
             <p className="italic text-white/90">
-              "Since listing my downtown event space on gatherhaven, bookings have increased by 70%. The platform's intuitive calendar and payment system saves me hours of admin work."
+              "Since listing my downtown event space on Super Events, bookings have increased by 70%. The platform's intuitive calendar and payment system saves me hours of admin work."
             </p>
             <div className="mt-4 flex">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -75,7 +74,7 @@ export const Testimonials = () => {
             <div className="flex items-center mb-4">
               <div className="mr-4">
                 <img 
-                  src="https://randomuser.me/api/portraits/women/63.jpg" 
+                  src="https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg" 
                   alt="Jessica Martinez" 
                   className="w-12 h-12 rounded-full object-cover"
                 />
@@ -86,7 +85,7 @@ export const Testimonials = () => {
               </div>
             </div>
             <p className="italic text-white/90">
-              "Planning a wedding is stressful enough, but gatherhaven made venue selection a breeze. We found our dream garden location and handled all booking details in one afternoon!"
+              "Planning a wedding is stressful enough, but Super Events made venue selection a breeze. We found our dream garden location and handled all booking details in one afternoon!"
             </p>
             <div className="mt-4 flex">
               {[1, 2, 3, 4, 5].map((star) => (
