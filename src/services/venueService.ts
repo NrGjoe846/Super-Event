@@ -35,10 +35,12 @@ export interface DetailedVenueData {
 // Add a new venue
 export const addDetailedVenue = async (data: DetailedVenueData): Promise<string> => {
   try {
+    // First upload images
     const uploadedImageInfos = await uploadImages(data.imageFiles, 'venue-images');
     const imageUrls = uploadedImageInfos.map(info => info.url);
 
-    const newVenue: Venue = {
+    // Prepare venue data for Supabase
+    const venueData = {
       name: data.name,
       location: data.location,
       capacity: data.capacity,
@@ -51,18 +53,27 @@ export const addDetailedVenue = async (data: DetailedVenueData): Promise<string>
       featured: false,
       bookings: [],
       reviews: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       submitted_by: data.userId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
+    // Insert into Supabase
     const { data: venue, error } = await supabase
       .from('venues')
-      .insert(newVenue)
-      .select()
+      .insert([venueData])
+      .select('id')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw new Error(error.message);
+    }
+
+    if (!venue) {
+      throw new Error('Failed to create venue - no data returned');
+    }
+
     return venue.id;
   } catch (error) {
     console.error("Error adding venue:", error);
@@ -78,7 +89,15 @@ export const getAllVenues = async (): Promise<Venue[]> => {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase select error:', error);
+      throw new Error(error.message);
+    }
+
+    if (!data) {
+      return [];
+    }
+
     return data;
   } catch (error) {
     console.error("Error getting venues:", error);
@@ -86,18 +105,48 @@ export const getAllVenues = async (): Promise<Venue[]> => {
   }
 };
 
+// Get venues by owner
+export const getVenuesByOwner = async (userId: string): Promise<Venue[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('venues')
+      .select('*')
+      .eq('submitted_by', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase select error:', error);
+      throw new Error(error.message);
+    }
+
+    if (!data) {
+      return [];
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error getting venues by owner:", error);
+    throw error;
+  }
+};
+
 // Update an existing venue
 export const editVenue = async (id: string, venueData: Partial<Venue>): Promise<void> => {
   try {
+    const updateData = {
+      ...venueData,
+      updated_at: new Date().toISOString()
+    };
+
     const { error } = await supabase
       .from('venues')
-      .update({
-        ...venueData,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase update error:', error);
+      throw new Error(error.message);
+    }
   } catch (error) {
     console.error("Error updating venue:", error);
     throw error;
@@ -105,14 +154,23 @@ export const editVenue = async (id: string, venueData: Partial<Venue>): Promise<
 };
 
 // Delete a venue
-export const deleteVenue = async (id: string): Promise<void> => {
+export const deleteVenue = async (id: string, userId?: string): Promise<void> => {
   try {
-    const { error } = await supabase
+    let query = supabase
       .from('venues')
-      .delete()
-      .eq('id', id);
+      .delete();
 
-    if (error) throw error;
+    // If userId is provided, ensure the venue belongs to the user
+    if (userId) {
+      query = query.eq('submitted_by', userId);
+    }
+
+    const { error } = await query.eq('id', id);
+
+    if (error) {
+      console.error('Supabase delete error:', error);
+      throw new Error(error.message);
+    }
   } catch (error) {
     console.error("Error deleting venue:", error);
     throw error;
