@@ -1,0 +1,66 @@
+{
+  "venues": [
+    {
+      "id": "v1",
+      "name": "Taj Palace Banquet Hall",
+      "location": "New Delhi, India",
+      "description": "A luxurious banquet hall perfect for grand weddings and corporate events",
+      "capacity": "200-1000",
+      "price": 75000,
+      "rating": 4.9,
+      "featured": true,
+      "images": [
+        "https://images.pexels.com/photos/1045541/pexels-photo-1045541.jpeg",
+        "https://images.pexels.com/photos/265129/pexels-photo-265129.jpeg",
+        "https://images.pexels.com/photos/267301/pexels-photo-267301.jpeg"
+      ],
+      "amenities": [
+        "Valet Parking",
+        "Catering",
+        "DJ System",
+        "Air Conditioning",
+        "Decoration"
+      ],
+      "availability": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "bookings": [],
+      "reviews": []
+    },
+    {
+      "id": "v2",
+      "name": "Marine Drive Convention",
+      "location": "Mumbai, Maharashtra",
+      "description": "Modern convention center with stunning sea views",
+      "capacity": "100-500",
+      "price": 65000,
+      "rating": 4.7,
+      "featured": false,
+      "images": [
+        "https://images.pexels.com/photos/260928/pexels-photo-260928.jpeg",
+        "https://images.pexels.com/photos/275484/pexels-photo-275484.jpeg"
+      ],
+      "amenities": [
+        "WiFi",
+        "Projector",
+        "Sound System",
+        "Catering",
+        "Security"
+      ],
+      "availability": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "bookings": [],
+      "reviews": []
+    }
+  ]
+}
