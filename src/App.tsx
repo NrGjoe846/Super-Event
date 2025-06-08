@@ -13,7 +13,7 @@ import NotFound from "./pages/NotFound";
 import AddVenue from "./pages/AddVenue";
 import Contact from "./pages/Contact";
 import Dashboard from "./pages/Dashboard";
-import ManageVenuesPage from "./pages/ManageVenues"; // Import ManageVenuesPage
+import ManageVenuesPage from "./pages/ManageVenues";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -34,12 +34,13 @@ const App = () => (
           <Toaster />
           <Sonner />
           <Routes>
-            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="/" element={<Navigate to="/home\" replace />} />
             <Route path="/auth" element={<Auth />} />
             
             {/* Public Routes */}
             <Route path="/home" element={<Index />} />
             <Route path="/venues" element={<Venues />} />
+            <Route path="/venue/:id" element={<Venues />} />
             <Route path="/events" element={<Events />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
@@ -48,7 +49,7 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/add-venue" element={<AddVenue />} />
-              <Route path="/admin/venues" element={<ManageVenuesPage />} /> {/* New Route */}
+              <Route path="/admin/venues" element={<ManageVenuesPage />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
