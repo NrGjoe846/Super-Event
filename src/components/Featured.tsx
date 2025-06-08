@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { VenueCard } from "./VenueCard";
 import { ButtonCustom } from "./ui/button-custom";
+import { useNavigate } from "react-router-dom";
 
 export const Featured = () => {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+  const navigate = useNavigate();
 
   const venues = [
     {
@@ -70,6 +72,10 @@ export const Featured = () => {
     };
   }, []);
 
+  const handleViewAllVenues = () => {
+    navigate("/venues");
+  };
+
   return (
     <section ref={sectionRef} className="py-20 px-4 md:px-6">
       <div className="container mx-auto">
@@ -94,7 +100,12 @@ export const Featured = () => {
         </div>
 
         <div className={`mt-12 text-center transition-all duration-700 delay-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-          <ButtonCustom variant="outline" size="lg" className="mx-auto">
+          <ButtonCustom 
+            variant="outline" 
+            size="lg" 
+            className="mx-auto"
+            onClick={handleViewAllVenues}
+          >
             View All Venues
           </ButtonCustom>
         </div>
