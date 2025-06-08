@@ -6,7 +6,7 @@ import { VenueDetailModal } from "../components/VenueDetailModal";
 import { ButtonCustom } from "../components/ui/button-custom";
 import { PaginationCustom } from "../components/ui/pagination-custom";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { getAllVenues, Venue, subscribeToVenues } from "@/services/venueService";
 
 const filters = [
@@ -28,19 +28,45 @@ const Venues = () => {
   const itemsPerPage = 9;
   const { toast } = useToast();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     loadVenues();
 
     const unsubscribe = subscribeToVenues((updatedVenues) => {
       setVenues(updatedVenues);
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    // Handle URL search parameters
+    const eventParam = searchParams.get('event');
+    const locationParam = searchParams.get('location');
+    
+    if (eventParam) {
+      setActiveFilter(eventParam);
+    }
+    
+    if (locationParam) {
+      // Filter venues by location if specified
+      const filteredByLocation = venues.filter(venue => 
+        venue.location.toLowerCase().includes(locationParam.toLowerCase())
+      );
+      if (filteredByLocation.length > 0) {
+        toast({
+          title: `Found ${filteredByLocation.length} venues`,
+          description: `In ${locationParam}`,
+        });
+      }
+    }
+  }, [searchParams, venues, toast]);
+
   const loadVenues = async () => {
     try {
+      setIsLoading(true);
       const loadedVenues = await getAllVenues();
       setVenues(loadedVenues);
     } catch (error) {
@@ -104,9 +130,12 @@ const Venues = () => {
   // Filter venues based on active filter
   const filteredVenues = venues.filter(venue => {
     if (activeFilter === "all") return true;
+    
+    // Check if the venue amenities or description contains the filter term
+    const filterTerm = activeFilter.toLowerCase();
     return venue.amenities.some(amenity => 
-      amenity.toLowerCase().includes(activeFilter.toLowerCase())
-    );
+      amenity.toLowerCase().includes(filterTerm)
+    ) || venue.description.toLowerCase().includes(filterTerm);
   });
   
   const sortedVenues = [...filteredVenues].sort((a, b) => {
@@ -190,35 +219,38 @@ const Venues = () => {
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-blue"></div>
+              <p className="ml-4 text-lg text-gray-600">Loading venues...</p>
             </div>
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 {currentVenues.map((venue) => (
-                  <div key={venue.id} onClick={() => handleVenueClick(venue)} className="cursor-pointer">
-                    <VenueCard
-                      id={venue.id}
-                      image={venue.images[0]}
-                      name={venue.name}
-                      location={venue.location}
-                      price={venue.price}
-                      rating={venue.rating}
-                      featured={venue.featured}
-                      availability={venue.availability}
-                      amenities={venue.amenities}
-                    />
-                  </div>
+                  <VenueCard
+                    key={venue.id}
+                    id={venue.id!}
+                    image={venue.images[0]}
+                    name={venue.name}
+                    location={venue.location}
+                    price={venue.price}
+                    rating={venue.rating}
+                    featured={venue.featured}
+                    availability={venue.availability}
+                    amenities={venue.amenities}
+                    onClick={() => handleVenueClick(venue)}
+                  />
                 ))}
               </div>
 
-              <PaginationCustom
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-                itemsPerPage={itemsPerPage}
-                totalItems={sortedVenues.length}
-                className="mt-8"
-              />
+              {sortedVenues.length > itemsPerPage && (
+                <PaginationCustom
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={sortedVenues.length}
+                  className="mt-8"
+                />
+              )}
             </>
           )}
 
@@ -245,7 +277,11 @@ const Venues = () => {
 
       {selectedVenue && (
         <VenueDetailModal
-          venue={selectedVenue}
+          venue={{
+            ...selectedVenue,
+            capacity: selectedVenue.capacity,
+            images: selectedVenue.images,
+          }}
           isOpen={isModalOpen}
           onOpenChange={setIsModalOpen}
         />
