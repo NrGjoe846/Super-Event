@@ -1,6 +1,13 @@
 import { ButtonCustom } from "./ui/button-custom";
+import { useNavigate } from "react-router-dom";
 
 export const EventTypes = () => {
+  const navigate = useNavigate();
+
+  const handleExploreVenues = (eventType: string) => {
+    navigate(`/venues?event=${eventType}`);
+  };
+
   return (
     <section className="py-20 px-4 md:px-6">
       <div className="container mx-auto">
@@ -16,7 +23,10 @@ export const EventTypes = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Wedding Card */}
-          <div className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale">
+          <div 
+            className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale cursor-pointer"
+            onClick={() => handleExploreVenues('wedding')}
+          >
             <img 
               src="https://images.pexels.com/photos/3585798/pexels-photo-3585798.jpeg" 
               alt="Indian Wedding Venue" 
@@ -37,7 +47,10 @@ export const EventTypes = () => {
           </div>
           
           {/* Corporate Card */}
-          <div className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale">
+          <div 
+            className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale cursor-pointer"
+            onClick={() => handleExploreVenues('corporate')}
+          >
             <img 
               src="https://images.pexels.com/photos/2977565/pexels-photo-2977565.jpeg" 
               alt="Corporate Venue in India" 
@@ -58,7 +71,10 @@ export const EventTypes = () => {
           </div>
           
           {/* Cultural Events Card */}
-          <div className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale">
+          <div 
+            className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale cursor-pointer"
+            onClick={() => handleExploreVenues('cultural')}
+          >
             <img 
               src="https://images.pexels.com/photos/2263436/pexels-photo-2263436.jpeg" 
               alt="Cultural Event Venue" 
@@ -79,7 +95,10 @@ export const EventTypes = () => {
           </div>
           
           {/* Social Card */}
-          <div className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale">
+          <div 
+            className="relative group overflow-hidden rounded-lg aspect-[3/4] glass-card hover-scale cursor-pointer"
+            onClick={() => handleExploreVenues('social')}
+          >
             <img 
               src="https://images.pexels.com/photos/587741/pexels-photo-587741.jpeg" 
               alt="Social Event Venue in India" 
