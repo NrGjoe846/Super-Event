@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ButtonCustom } from "./ui/button-custom";
 import { ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface VenueCardProps {
   id: string;
@@ -12,6 +13,7 @@ interface VenueCardProps {
   featured?: boolean;
   availability?: string[];
   amenities?: string[];
+  onClick?: () => void;
 }
 
 export const VenueCard: React.FC<VenueCardProps> = ({
@@ -24,12 +26,14 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   featured = false,
   availability = ["Monday", "Tuesday", "Wednesday"],
   amenities = ["Parking", "WiFi", "Catering"],
+  onClick,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isInView, setIsInView] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -51,10 +55,27 @@ export const VenueCard: React.FC<VenueCardProps> = ({
     };
   }, []);
 
+  const handleViewDetails = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onClick) {
+      onClick();
+    } else {
+      navigate(`/venue/${id}`);
+    }
+  };
+
+  const handleCardClick = () => {
+    if (onClick) {
+      onClick();
+    } else {
+      navigate(`/venue/${id}`);
+    }
+  };
+
   return (
     <div 
       ref={cardRef}
-      className={`glass-card overflow-hidden transition-all duration-500 ${
+      className={`glass-card overflow-hidden transition-all duration-500 cursor-pointer ${
         featured ? "sm:col-span-2" : ""
       } ${isHovered ? "shadow-xl translate-y-[-4px]" : "shadow-md"} ${
         isInView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
@@ -64,6 +85,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
         setIsHovered(false);
         setShowDetails(false);
       }}
+      onClick={handleCardClick}
       style={{ transitionDelay: `${Math.random() * 0.3}s` }}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
@@ -92,6 +114,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           <button 
             className="bg-white/90 backdrop-blur-sm p-2 rounded-full hover:bg-white text-brand-blue"
             aria-label="Add to wishlist"
+            onClick={(e) => e.stopPropagation()}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
@@ -100,6 +123,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           <button 
             className="bg-white/90 backdrop-blur-sm p-2 rounded-full hover:bg-white text-brand-blue"
             aria-label="Share venue"
+            onClick={(e) => e.stopPropagation()}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
@@ -163,7 +187,10 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => setShowDetails(!showDetails)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDetails(!showDetails);
+              }}
               className="text-xs text-gray-500 hover:text-brand-blue underline"
             >
               {showDetails ? "Less info" : "More info"}
@@ -174,6 +201,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
               className="transition-all"
               icon={<ArrowRight size={16} />}
               iconPosition="right"
+              onClick={handleViewDetails}
             >
               View Details
             </ButtonCustom>
