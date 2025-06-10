@@ -5,8 +5,12 @@ import { Footer } from "../components/Footer";
 import { ButtonCustom } from "../components/ui/button-custom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { getAllVenues as getVenuesByOwner, deleteVenue } from "@/services/venueService";
+import { useUserVenuesRealtime } from "@/hooks/useVenueRealtime";
+import { VenueAnalyticsDashboard } from "@/components/VenueAnalyticsDashboard";
+import { VenueStatusBadge } from "@/components/VenueStatusBadge";
+import { deleteVenue } from "@/services/venueService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -19,6 +23,7 @@ import {
   Legend
 } from 'chart.js';
 import { format } from "date-fns";
+import { Eye, Calendar, Heart, TrendingUp, Plus, Edit, Trash2 } from 'lucide-react';
 
 // Register ChartJS components
 ChartJS.register(
@@ -36,9 +41,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
-  const [venues, setVenues] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [bookings, setBookings] = useState([
+  const { venues, isLoading } = useUserVenuesRealtime();
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
+
+  const [bookings] = useState([
     {
       id: "1",
       venueName: "Sample Venue",
@@ -88,34 +94,21 @@ const Dashboard = () => {
       return;
     }
 
-    loadVenues();
-  }, [user, navigate]);
-
-  const loadVenues = async () => {
-    try {
-      const userVenues = await getVenuesByOwner(user.id);
-      setVenues(userVenues);
-    } catch (error) {
-      toast({
-        title: "Error loading venues",
-        description: "Failed to load your venues. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    // Set first venue as selected for analytics
+    if (venues.length > 0 && !selectedVenueId) {
+      setSelectedVenueId(venues[0].id!);
     }
-  };
+  }, [user, navigate, venues, selectedVenueId]);
 
   const handleDeleteVenue = async (venueId: string) => {
     if (!confirm("Are you sure you want to delete this venue?")) return;
 
     try {
-      await deleteVenue(venueId, user.id);
+      await deleteVenue(venueId, user?.id);
       toast({
         title: "Venue Deleted",
         description: "The venue has been successfully deleted.",
       });
-      loadVenues();
     } catch (error) {
       toast({
         title: "Error Deleting Venue",
@@ -137,6 +130,14 @@ const Dashboard = () => {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Calculate stats from venues
+  const totalRevenue = bookings.reduce((sum, booking) => sum + booking.amount, 0);
+  const approvedVenues = venues.filter(venue => venue.status === 'approved').length;
+  const pendingVenues = venues.filter(venue => venue.status === 'pending').length;
+  const avgRating = venues.length > 0 
+    ? venues.reduce((sum, venue) => sum + venue.rating, 0) / venues.length 
+    : 0;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -160,45 +161,75 @@ const Dashboard = () => {
               <ButtonCustom
                 variant="gold"
                 onClick={() => navigate("/add-venue")}
+                icon={<Plus className="h-4 w-4" />}
               >
                 Add New Venue
               </ButtonCustom>
             </div>
           </div>
 
+          {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Total Revenue</h3>
-              <p className="text-3xl font-bold text-brand-blue">
-                ₹{bookings.reduce((sum, booking) => sum + booking.amount, 0).toLocaleString()}
-              </p>
-              <p className="text-sm text-green-600 mt-2">+12.5% from last month</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Active Venues</h3>
-              <p className="text-3xl font-bold text-brand-blue">{venues.length}</p>
-              <p className="text-sm text-gray-600 mt-2">Across {venues.length} locations</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Total Bookings</h3>
-              <p className="text-3xl font-bold text-brand-blue">{bookings.length}</p>
-              <p className="text-sm text-green-600 mt-2">+5% from last month</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Avg. Rating</h3>
-              <p className="text-3xl font-bold text-brand-blue">4.8</p>
-              <p className="text-sm text-gray-600 mt-2">From 150 reviews</p>
-            </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">Total Revenue</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-brand-blue">
+                  ₹{totalRevenue.toLocaleString()}
+                </div>
+                <p className="text-xs text-green-600 mt-1">+12.5% from last month</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">Active Venues</CardTitle>
+                <Eye className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-brand-blue">{approvedVenues}</div>
+                <p className="text-xs text-gray-600 mt-1">
+                  {pendingVenues} pending approval
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">Total Bookings</CardTitle>
+                <Calendar className="h-4 w-4 text-purple-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-brand-blue">{bookings.length}</div>
+                <p className="text-xs text-green-600 mt-1">+5% from last month</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">Avg. Rating</CardTitle>
+                <Heart className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-brand-blue">
+                  {avgRating.toFixed(1)}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">From {venues.length} venues</p>
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border">
+          {/* Tabs */}
+          <Card>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="w-full border-b p-0">
                 <TabsTrigger value="overview" className="flex-1 py-4">
                   Overview
                 </TabsTrigger>
                 <TabsTrigger value="venues" className="flex-1 py-4">
-                  My Venues
+                  My Venues ({venues.length})
                 </TabsTrigger>
                 <TabsTrigger value="bookings" className="flex-1 py-4">
                   Bookings
@@ -210,48 +241,56 @@ const Dashboard = () => {
 
               <TabsContent value="overview" className="p-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-lg border p-6">
-                    <h3 className="text-lg font-semibold mb-4">Recent Bookings</h3>
-                    <div className="space-y-4">
-                      {bookings.slice(0, 5).map((booking) => (
-                        <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-                          <div>
-                            <p className="font-medium">{booking.venueName}</p>
-                            <p className="text-sm text-gray-600">{booking.customerName}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">₹{booking.amount.toLocaleString()}</p>
-                            <p className="text-sm text-gray-600">{format(new Date(booking.date), 'PP')}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-lg border p-6">
-                    <h3 className="text-lg font-semibold mb-4">Popular Venues</h3>
-                    <div className="space-y-4">
-                      {venues.slice(0, 5).map((venue: any) => (
-                        <div key={venue.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={venue.images[0]}
-                              alt={venue.name}
-                              className="w-12 h-12 rounded-lg object-cover"
-                            />
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Recent Bookings</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {bookings.slice(0, 5).map((booking) => (
+                          <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0">
                             <div>
-                              <p className="font-medium">{venue.name}</p>
-                              <p className="text-sm text-gray-600">{venue.location}</p>
+                              <p className="font-medium">{booking.venueName}</p>
+                              <p className="text-sm text-gray-600">{booking.customerName}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">₹{booking.amount.toLocaleString()}</p>
+                              <p className="text-sm text-gray-600">{format(new Date(booking.date), 'PP')}</p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-medium">₹{venue.price.toLocaleString()}</p>
-                            <p className="text-sm text-gray-600">{venue.bookings || 0} bookings</p>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Your Venues</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {venues.slice(0, 5).map((venue) => (
+                          <div key={venue.id} className="flex items-center justify-between border-b pb-4 last:border-0">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={venue.images[0] || 'https://via.placeholder.com/48x48'}
+                                alt={venue.name}
+                                className="w-12 h-12 rounded-lg object-cover"
+                              />
+                              <div>
+                                <p className="font-medium">{venue.name}</p>
+                                <p className="text-sm text-gray-600">{venue.location}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">₹{venue.price.toLocaleString()}</p>
+                              <VenueStatusBadge status={venue.status || 'pending'} />
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </TabsContent>
 
@@ -263,49 +302,52 @@ const Dashboard = () => {
                   </div>
                 ) : venues.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {venues.map((venue: any) => (
-                      <div key={venue.id} className="bg-white rounded-lg border shadow-sm overflow-hidden">
-                        <img
-                          src={venue.images[0]}
-                          alt={venue.name}
-                          className="w-full h-48 object-cover"
-                        />
-                        <div className="p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-lg font-semibold">{venue.name}</h3>
-                            <span className="bg-brand-blue/10 text-brand-blue text-xs px-2 py-1 rounded-full">
-                              {venue.bookings || 0} bookings
-                            </span>
-                          </div>
-                          <p className="text-gray-600 text-sm mb-2">{venue.location}</p>
-                          <div className="flex items-center gap-2 mb-4">
-                            <span className="text-yellow-500">★</span>
-                            <span className="font-medium">{venue.rating.toFixed(1)}</span>
-                            <span className="text-gray-500">({venue.reviews || 0} reviews)</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <p className="text-brand-blue font-medium">
-                              ₹{venue.price.toLocaleString()}/day
-                            </p>
-                            <div className="flex gap-2">
-                              <ButtonCustom
-                                variant="outline"
-                                size="sm"
-                                onClick={() => navigate(`/edit-venue/${venue.id}`)}
-                              >
-                                Edit
-                              </ButtonCustom>
-                              <ButtonCustom
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleDeleteVenue(venue.id)}
-                              >
-                                Delete
-                              </ButtonCustom>
-                            </div>
+                    {venues.map((venue) => (
+                      <Card key={venue.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                        <div className="relative">
+                          <img
+                            src={venue.images[0] || 'https://via.placeholder.com/400x200'}
+                            alt={venue.name}
+                            className="w-full h-48 object-cover"
+                          />
+                          <div className="absolute top-2 right-2">
+                            <VenueStatusBadge status={venue.status || 'pending'} />
                           </div>
                         </div>
-                      </div>
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="text-lg font-semibold truncate">{venue.name}</h3>
+                            <div className="flex items-center gap-1 text-yellow-500">
+                              <span>★</span>
+                              <span className="text-sm font-medium">{venue.rating.toFixed(1)}</span>
+                            </div>
+                          </div>
+                          <p className="text-gray-600 text-sm mb-2 truncate">{venue.location}</p>
+                          <p className="text-brand-blue font-medium mb-4">
+                            ₹{venue.price.toLocaleString()}/day
+                          </p>
+                          <div className="flex gap-2">
+                            <ButtonCustom
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => navigate(`/edit-venue/${venue.id}`)}
+                              icon={<Edit className="h-4 w-4" />}
+                            >
+                              Edit
+                            </ButtonCustom>
+                            <ButtonCustom
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteVenue(venue.id!)}
+                              className="text-red-600 hover:text-red-700 hover:border-red-300"
+                              icon={<Trash2 className="h-4 w-4" />}
+                            >
+                              Delete
+                            </ButtonCustom>
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 ) : (
@@ -317,6 +359,7 @@ const Dashboard = () => {
                     <ButtonCustom
                       variant="gold"
                       onClick={() => navigate("/add-venue")}
+                      icon={<Plus className="h-4 w-4" />}
                     >
                       Add Your First Venue
                     </ButtonCustom>
@@ -366,39 +409,74 @@ const Dashboard = () => {
               </TabsContent>
 
               <TabsContent value="analytics" className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-lg border p-6">
-                    <h3 className="text-lg font-semibold mb-4">Revenue & Bookings</h3>
-                    <Line data={analyticsData} options={analyticsOptions} />
-                  </div>
-
-                  <div className="bg-white rounded-lg border p-6">
-                    <h3 className="text-lg font-semibold mb-4">Top Performing Venues</h3>
-                    <div className="space-y-4">
-                      {venues.slice(0, 5).map((venue: any, index) => (
-                        <div key={venue.id} className="flex items-center gap-4 border-b pb-4 last:border-0">
-                          <span className="text-lg font-bold text-gray-400">#{index + 1}</span>
-                          <img
-                            src={venue.images[0]}
-                            alt={venue.name}
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium">{venue.name}</p>
-                            <p className="text-sm text-gray-600">{venue.location}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">₹{venue.price.toLocaleString()}</p>
-                            <p className="text-sm text-green-600">+15% this month</p>
-                          </div>
-                        </div>
-                      ))}
+                <div className="space-y-6">
+                  {/* Venue Selection for Analytics */}
+                  {venues.length > 0 && (
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Venue for Analytics
+                      </label>
+                      <select
+                        value={selectedVenueId || ''}
+                        onChange={(e) => setSelectedVenueId(e.target.value)}
+                        className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                      >
+                        {venues.map((venue) => (
+                          <option key={venue.id} value={venue.id}>
+                            {venue.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+                  )}
+
+                  {/* Analytics Dashboard */}
+                  {selectedVenueId && (
+                    <VenueAnalyticsDashboard venueId={selectedVenueId} />
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Revenue & Bookings</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <Line data={analyticsData} options={analyticsOptions} />
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Top Performing Venues</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {venues.slice(0, 5).map((venue, index) => (
+                            <div key={venue.id} className="flex items-center gap-4 border-b pb-4 last:border-0">
+                              <span className="text-lg font-bold text-gray-400">#{index + 1}</span>
+                              <img
+                                src={venue.images[0] || 'https://via.placeholder.com/48x48'}
+                                alt={venue.name}
+                                className="w-12 h-12 rounded-lg object-cover"
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium">{venue.name}</p>
+                                <p className="text-sm text-gray-600">{venue.location}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-medium">₹{venue.price.toLocaleString()}</p>
+                                <p className="text-sm text-green-600">+15% this month</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
               </TabsContent>
             </Tabs>
-          </div>
+          </Card>
         </div>
       </main>
       <Footer />
