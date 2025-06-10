@@ -1,15 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Use fallback values if environment variables are not available
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ixeufyjzcpaczredfmfc.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4ZXVmeWp6Y3BhY3pyZWRmbWZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0NTA1ODEsImV4cCI6MjA2MjAyNjU4MX0.tR8puyZgKG9TW4zIiZbnLiFCr_ckhVl2O9z_Fx0UV94';
-
-// Only throw error if we're in production and missing real values
-if ((!supabaseUrl || supabaseUrl === 'https://ixeufyjzcpaczredfmfc.supabase.co') && 
-    (!supabaseAnonKey || supabaseAnonKey === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4ZXVmeWp6Y3BhY3pyZWRmbWZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0NTA1ODEsImV4cCI6MjA2MjAyNjU4MX0.tR8puyZgKG9TW4zIiZbnLiFCr_ckhVl2O9z_Fx0UV94') && 
-    import.meta.env.PROD) {
-  console.warn('Supabase environment variables not configured. Using fallback mode.');
-}
+// Direct Supabase credentials - embedded in code
+const supabaseUrl = 'https://cqakffwerprfpvxjbnyo.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxYWtmZndlcnByZnB2eGpibnlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1NjQ3NTYsImV4cCI6MjA2MTE0MDc1Nn0.ecWuhSkTTAZLWguPSotHSaVZpSSEdBQPS88ynOrPNuQ';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   realtime: {
