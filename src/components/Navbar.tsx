@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ButtonCustom } from "./ui/button-custom";
 import { Search, X, Menu, Bell, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { RealtimeVenueNotifications } from "./RealtimeVenueNotifications";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,10 +105,8 @@ export const Navbar = () => {
             {/* User Menu */}
             {user ? (
               <div className="flex items-center gap-4">
-                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors relative">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
-                </button>
+                {/* Real-time Notifications */}
+                <RealtimeVenueNotifications />
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
