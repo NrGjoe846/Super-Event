@@ -6,7 +6,8 @@ import { ButtonCustom } from './ui/button-custom';
 import { PaginationCustom } from './ui/pagination-custom';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Filter, RefreshCw } from 'lucide-react';
+import { Search, Filter, RefreshCw, Bell, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface VenueRealtimeListProps {
   showStatus?: boolean;
@@ -19,7 +20,7 @@ export const VenueRealtimeList: React.FC<VenueRealtimeListProps> = ({
   itemsPerPage = 9,
   onVenueClick
 }) => {
-  const { venues, isLoading, error, refreshVenues } = useVenueRealtime();
+  const { venues, isLoading, error, newVenueCount, refreshVenues, clearNewVenueNotification } = useVenueRealtime();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState('created_at');
@@ -63,6 +64,12 @@ export const VenueRealtimeList: React.FC<VenueRealtimeListProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleNewVenueNotificationClick = () => {
+    clearNewVenueNotification();
+    setCurrentPage(1); // Go to first page to see new venues
+    setSortBy('created_at'); // Sort by newest first
+  };
+
   if (error) {
     return (
       <div className="text-center py-12">
@@ -77,6 +84,50 @@ export const VenueRealtimeList: React.FC<VenueRealtimeListProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* New Venue Notification */}
+      <AnimatePresence>
+        {newVenueCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
+            className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4 shadow-lg"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-green-100 p-2 rounded-full">
+                  <Bell className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-green-800">
+                    {newVenueCount} New Venue{newVenueCount > 1 ? 's' : ''} Available!
+                  </h3>
+                  <p className="text-sm text-green-600">
+                    Fresh venues just added to our platform
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <ButtonCustom
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNewVenueNotificationClick}
+                  className="border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  View New Venues
+                </ButtonCustom>
+                <button
+                  onClick={clearNewVenueNotification}
+                  className="text-green-600 hover:text-green-800 p-1"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Filters and Search */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex flex-1 gap-4 items-center">
@@ -130,10 +181,18 @@ export const VenueRealtimeList: React.FC<VenueRealtimeListProps> = ({
         </div>
       </div>
 
-      {/* Results count */}
-      <div className="text-sm text-gray-600">
-        Showing {currentVenues.length} of {sortedVenues.length} venues
-        {searchQuery && ` for "${searchQuery}"`}
+      {/* Results count with real-time indicator */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          Showing {currentVenues.length} of {sortedVenues.length} venues
+          {searchQuery && ` for "${searchQuery}"`}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-xs text-gray-500">Live Updates</span>
+          </div>
+        </div>
       </div>
 
       {/* Loading state */}
@@ -144,36 +203,65 @@ export const VenueRealtimeList: React.FC<VenueRealtimeListProps> = ({
         </div>
       )}
 
-      {/* Venues grid */}
+      {/* Venues grid with animations */}
       {!isLoading && currentVenues.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {currentVenues.map((venue) => (
-            <div key={venue.id} className="relative">
-              <VenueCard
-                id={venue.id!}
-                image={venue.images[0] || 'https://via.placeholder.com/400x300'}
-                name={venue.name}
-                location={venue.location}
-                price={venue.price}
-                rating={venue.rating}
-                featured={venue.featured}
-                availability={venue.availability}
-                amenities={venue.amenities}
-                onClick={() => onVenueClick?.(venue)}
-              />
-              {showStatus && venue.status && (
-                <div className="absolute top-2 right-2">
-                  <VenueStatusBadge status={venue.status} />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <motion.div 
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+          layout
+        >
+          <AnimatePresence>
+            {currentVenues.map((venue, index) => (
+              <motion.div
+                key={venue.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ 
+                  duration: 0.3,
+                  delay: index * 0.1,
+                  layout: { duration: 0.3 }
+                }}
+                className="relative"
+              >
+                <VenueCard
+                  id={venue.id!}
+                  image={venue.images[0] || 'https://via.placeholder.com/400x300'}
+                  name={venue.name}
+                  location={venue.location}
+                  price={venue.price}
+                  rating={venue.rating}
+                  featured={venue.featured}
+                  availability={venue.availability}
+                  amenities={venue.amenities}
+                  onClick={() => onVenueClick?.(venue)}
+                />
+                {showStatus && venue.status && (
+                  <div className="absolute top-2 right-2">
+                    <VenueStatusBadge status={venue.status} />
+                  </div>
+                )}
+                {/* New venue indicator */}
+                {venue.created_at && new Date(venue.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000) && (
+                  <div className="absolute top-2 left-2">
+                    <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                      NEW
+                    </span>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
 
       {/* Empty state */}
       {!isLoading && currentVenues.length === 0 && (
-        <div className="text-center py-16">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-16"
+        >
           <h3 className="text-xl font-semibold mb-2">No venues found</h3>
           <p className="text-gray-600 mb-6">
             {searchQuery 
@@ -193,7 +281,7 @@ export const VenueRealtimeList: React.FC<VenueRealtimeListProps> = ({
               Clear Search
             </ButtonCustom>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* Pagination */}
