@@ -4,7 +4,8 @@ import {
   subscribeToUserVenues, 
   Venue,
   getVenueAnalytics,
-  VenueAnalytics
+  VenueAnalytics,
+  getVenueStatistics
 } from '@/services/venueService';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -21,6 +22,7 @@ export const useVenueRealtime = () => {
     const unsubscribe = subscribeToVenues((updatedVenues) => {
       setVenues(updatedVenues);
       setIsLoading(false);
+      setError(null);
     });
 
     return () => {
@@ -61,6 +63,7 @@ export const useUserVenuesRealtime = () => {
     const unsubscribe = subscribeToUserVenues(user.id, (updatedVenues) => {
       setVenues(updatedVenues);
       setIsLoading(false);
+      setError(null);
     });
 
     return () => {
@@ -129,5 +132,93 @@ export const useVenueStatusUpdates = () => {
   return {
     pendingVenues,
     isLoading
+  };
+};
+
+// Hook for venue statistics dashboard
+export const useVenueStatistics = (userId?: string) => {
+  const { user } = useAuth();
+  const [statistics, setStatistics] = useState({
+    totalVenues: 0,
+    approvedVenues: 0,
+    pendingVenues: 0,
+    rejectedVenues: 0,
+    totalBookings: 0,
+    totalRevenue: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStatistics = useCallback(async () => {
+    const targetUserId = userId || user?.id;
+    if (!targetUserId) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const stats = await getVenueStatistics(targetUserId);
+      setStatistics(stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, user?.id]);
+
+  useEffect(() => {
+    fetchStatistics();
+  }, [fetchStatistics]);
+
+  return {
+    statistics,
+    isLoading,
+    error,
+    refetch: fetchStatistics
+  };
+};
+
+// Hook for real-time venue search with filters
+export const useVenueSearch = (filters: {
+  query?: string;
+  location?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  amenities?: string[];
+  eventType?: string;
+}) => {
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const searchVenues = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Import searchVenues function
+      const { searchVenues: searchVenuesAPI } = await import('@/services/venueService');
+      const results = await searchVenuesAPI(filters);
+      setVenues(results);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Search failed');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      searchVenues();
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timeoutId);
+  }, [searchVenues]);
+
+  return {
+    venues,
+    isLoading,
+    error,
+    refetch: searchVenues
   };
 };
