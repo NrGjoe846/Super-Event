@@ -41,6 +41,20 @@ export interface VenueAnalytics {
   conversion_rate: number;
 }
 
+export interface VenueBooking {
+  id?: string;
+  venue_id: string;
+  user_id: string;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  guest_count: number;
+  total_amount: number;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  special_requests?: string;
+  created_at?: string;
+}
+
 // Real-time subscription management
 let venueSubscription: any = null;
 let venueCallbacks: ((venues: Venue[]) => void)[] = [];
@@ -48,9 +62,12 @@ let venueCallbacks: ((venues: Venue[]) => void)[] = [];
 // Add a new venue with real-time updates
 export const addDetailedVenue = async (data: DetailedVenueData): Promise<string> => {
   try {
-    // First upload images
-    const uploadedImageInfos = await uploadImages(data.imageFiles, 'venue-images');
-    const imageUrls = uploadedImageInfos.map(info => info.url);
+    // First upload images if any
+    let imageUrls: string[] = [];
+    if (data.imageFiles && data.imageFiles.length > 0) {
+      const uploadedImageInfos = await uploadImages(data.imageFiles, 'venue-images');
+      imageUrls = uploadedImageInfos.map(info => info.url);
+    }
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -71,8 +88,6 @@ export const addDetailedVenue = async (data: DetailedVenueData): Promise<string>
       images: imageUrls,
       rating: 0,
       featured: false,
-      bookings: [],
-      reviews: [],
       submitted_by: user.id,
       status: 'pending' as const
     };
@@ -93,9 +108,6 @@ export const addDetailedVenue = async (data: DetailedVenueData): Promise<string>
       throw new Error('Failed to create venue - no data returned');
     }
 
-    // Trigger real-time update
-    notifyVenueCallbacks();
-
     return venue.id;
   } catch (error) {
     console.error("Error adding venue:", error);
@@ -103,7 +115,7 @@ export const addDetailedVenue = async (data: DetailedVenueData): Promise<string>
   }
 };
 
-// Get all venues with real-time capability
+// Get all approved venues
 export const getAllVenues = async (): Promise<Venue[]> => {
   try {
     const { data, error } = await supabase
@@ -182,7 +194,7 @@ export const incrementVenueViews = async (venueId: string): Promise<void> => {
     await supabase.rpc('increment_venue_views', {
       venue_uuid: venueId,
       user_uuid: user?.id || null,
-      ip_addr: null, // You can get this from request if needed
+      ip_addr: null,
       user_agent_string: navigator.userAgent
     });
   } catch (error) {
@@ -221,9 +233,6 @@ export const updateVenueStatus = async (venueId: string, status: 'pending' | 'ap
       console.error('Error updating venue status:', error);
       throw new Error(error.message);
     }
-
-    // Trigger real-time update
-    notifyVenueCallbacks();
   } catch (error) {
     console.error("Error updating venue status:", error);
     throw error;
@@ -233,6 +242,12 @@ export const updateVenueStatus = async (venueId: string, status: 'pending' | 'ap
 // Update an existing venue
 export const editVenue = async (id: string, venueData: Partial<Venue>): Promise<void> => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User must be authenticated');
+    }
+
     const updateData = {
       ...venueData,
       updated_at: new Date().toISOString()
@@ -241,15 +256,13 @@ export const editVenue = async (id: string, venueData: Partial<Venue>): Promise<
     const { error } = await supabase
       .from('venues')
       .update(updateData)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('submitted_by', user.id); // Ensure user can only edit their own venues
 
     if (error) {
       console.error('Supabase update error:', error);
       throw new Error(error.message);
     }
-
-    // Trigger real-time update
-    notifyVenueCallbacks();
   } catch (error) {
     console.error("Error updating venue:", error);
     throw error;
@@ -259,23 +272,22 @@ export const editVenue = async (id: string, venueData: Partial<Venue>): Promise<
 // Delete a venue
 export const deleteVenue = async (id: string, userId?: string): Promise<void> => {
   try {
-    let query = supabase
-      .from('venues')
-      .delete();
-
-    if (userId) {
-      query = query.eq('submitted_by', userId);
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User must be authenticated');
     }
 
-    const { error } = await query.eq('id', id);
+    const { error } = await supabase
+      .from('venues')
+      .delete()
+      .eq('id', id)
+      .eq('submitted_by', user.id); // Ensure user can only delete their own venues
 
     if (error) {
       console.error('Supabase delete error:', error);
       throw new Error(error.message);
     }
-
-    // Trigger real-time update
-    notifyVenueCallbacks();
   } catch (error) {
     console.error("Error deleting venue:", error);
     throw error;
@@ -353,6 +365,79 @@ export const getUserFavorites = async (): Promise<Venue[]> => {
   } catch (error) {
     console.error("Error getting user favorites:", error);
     return [];
+  }
+};
+
+// Create a venue booking
+export const createVenueBooking = async (bookingData: Omit<VenueBooking, 'id' | 'created_at'>): Promise<VenueBooking> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User must be authenticated');
+    }
+
+    const { data, error } = await supabase
+      .from('venue_bookings')
+      .insert([{ ...bookingData, user_id: user.id }])
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error creating booking:", error);
+    throw error;
+  }
+};
+
+// Get venue bookings for a specific venue
+export const getVenueBookings = async (venueId: string): Promise<VenueBooking[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('venue_bookings')
+      .select('*')
+      .eq('venue_id', venueId)
+      .order('booking_date', { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error getting venue bookings:", error);
+    return [];
+  }
+};
+
+// Check venue availability for a specific date and time
+export const checkVenueAvailability = async (
+  venueId: string, 
+  date: string, 
+  startTime: string, 
+  endTime: string
+): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('venue_bookings')
+      .select('id')
+      .eq('venue_id', venueId)
+      .eq('booking_date', date)
+      .neq('status', 'cancelled')
+      .or(`and(start_time.lte.${startTime},end_time.gt.${startTime}),and(start_time.lt.${endTime},end_time.gte.${endTime}),and(start_time.gte.${startTime},end_time.lte.${endTime})`);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return !data || data.length === 0;
+  } catch (error) {
+    console.error("Error checking venue availability:", error);
+    return false;
   }
 };
 
@@ -442,6 +527,7 @@ export const searchVenues = async (filters: {
   maxPrice?: number;
   amenities?: string[];
   capacity?: string;
+  eventType?: string;
 }): Promise<Venue[]> => {
   try {
     let query = supabase
@@ -482,6 +568,68 @@ export const searchVenues = async (filters: {
   } catch (error) {
     console.error("Error searching venues:", error);
     return [];
+  }
+};
+
+// Get venue statistics for dashboard
+export const getVenueStatistics = async (userId?: string): Promise<{
+  totalVenues: number;
+  approvedVenues: number;
+  pendingVenues: number;
+  rejectedVenues: number;
+  totalBookings: number;
+  totalRevenue: number;
+}> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const targetUserId = userId || user?.id;
+
+    if (!targetUserId) {
+      throw new Error('User ID required');
+    }
+
+    // Get venue counts
+    const { data: venues, error: venuesError } = await supabase
+      .from('venues')
+      .select('status')
+      .eq('submitted_by', targetUserId);
+
+    if (venuesError) throw venuesError;
+
+    const totalVenues = venues?.length || 0;
+    const approvedVenues = venues?.filter(v => v.status === 'approved').length || 0;
+    const pendingVenues = venues?.filter(v => v.status === 'pending').length || 0;
+    const rejectedVenues = venues?.filter(v => v.status === 'rejected').length || 0;
+
+    // Get booking statistics
+    const { data: bookings, error: bookingsError } = await supabase
+      .from('venue_bookings')
+      .select('total_amount')
+      .in('venue_id', venues?.map(v => v.id) || []);
+
+    if (bookingsError) throw bookingsError;
+
+    const totalBookings = bookings?.length || 0;
+    const totalRevenue = bookings?.reduce((sum, booking) => sum + booking.total_amount, 0) || 0;
+
+    return {
+      totalVenues,
+      approvedVenues,
+      pendingVenues,
+      rejectedVenues,
+      totalBookings,
+      totalRevenue
+    };
+  } catch (error) {
+    console.error("Error getting venue statistics:", error);
+    return {
+      totalVenues: 0,
+      approvedVenues: 0,
+      pendingVenues: 0,
+      rejectedVenues: 0,
+      totalBookings: 0,
+      totalRevenue: 0
+    };
   }
 };
 
@@ -571,68 +719,6 @@ const getMockVenues = (): Venue[] => {
         "Traditional Music",
         "Parking",
         "Photography"
-      ],
-      availability: [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday"
-      ],
-      bookings: [],
-      reviews: [],
-      status: 'approved'
-    },
-    {
-      id: "4",
-      name: "Mysore Palace Gardens",
-      location: "Mysore, Karnataka",
-      description: "Beautiful garden venue with palace backdrop",
-      capacity: "300-1200",
-      price: 120000,
-      rating: 4.9,
-      featured: false,
-      images: [
-        "https://images.pexels.com/photos/2291462/pexels-photo-2291462.jpeg",
-        "https://images.pexels.com/photos/1134176/pexels-photo-1134176.jpeg"
-      ],
-      amenities: [
-        "Garden Setting",
-        "Palace Views",
-        "Catering",
-        "Parking",
-        "Security"
-      ],
-      availability: [
-        "Friday",
-        "Saturday",
-        "Sunday"
-      ],
-      bookings: [],
-      reviews: [],
-      status: 'approved'
-    },
-    {
-      id: "5",
-      name: "Kerala Backwaters Resort",
-      location: "Kochi, Kerala",
-      description: "Serene backwater venue perfect for intimate celebrations",
-      capacity: "50-300",
-      price: 95000,
-      rating: 4.6,
-      featured: false,
-      images: [
-        "https://images.pexels.com/photos/2736388/pexels-photo-2736388.jpeg",
-        "https://images.pexels.com/photos/1134176/pexels-photo-1134176.jpeg"
-      ],
-      amenities: [
-        "Waterfront",
-        "Boat Access",
-        "Seafood Catering",
-        "Accommodation",
-        "Spa Services"
       ],
       availability: [
         "Monday",
