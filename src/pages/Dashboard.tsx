@@ -5,10 +5,10 @@ import { Footer } from "../components/Footer";
 import { ButtonCustom } from "../components/ui/button-custom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useUserVenuesRealtime } from "@/hooks/useVenueRealtime";
+import { useUserVenuesRealtime, useVenueStatistics } from "@/hooks/useVenueRealtime";
 import { VenueAnalyticsDashboard } from "@/components/VenueAnalyticsDashboard";
 import { VenueStatusBadge } from "@/components/VenueStatusBadge";
-import { deleteVenue } from "@/services/venueService";
+import { deleteVenue, getVenueBookings } from "@/services/venueService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Line } from "react-chartjs-2";
@@ -23,7 +23,7 @@ import {
   Legend
 } from 'chart.js';
 import { format } from "date-fns";
-import { Eye, Calendar, Heart, TrendingUp, Plus, Edit, Trash2 } from 'lucide-react';
+import { Eye, Calendar, Heart, TrendingUp, Plus, Edit, Trash2, MapPin, Users } from 'lucide-react';
 
 // Register ChartJS components
 ChartJS.register(
@@ -42,34 +42,52 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const { venues, isLoading } = useUserVenuesRealtime();
+  const { statistics, isLoading: statsLoading } = useVenueStatistics();
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
+  const [bookings, setBookings] = useState<any[]>([]);
 
-  const [bookings] = useState([
-    {
-      id: "1",
-      venueName: "Sample Venue",
-      customerName: "John Doe",
-      date: "2024-03-15",
-      time: "14:00",
-      status: "confirmed",
-      amount: 25000
-    }
-  ]);
+  // Load bookings for user's venues
+  useEffect(() => {
+    const loadBookings = async () => {
+      if (venues.length === 0) return;
+      
+      try {
+        const allBookings = [];
+        for (const venue of venues) {
+          if (venue.id) {
+            const venueBookings = await getVenueBookings(venue.id);
+            const bookingsWithVenue = venueBookings.map(booking => ({
+              ...booking,
+              venueName: venue.name
+            }));
+            allBookings.push(...bookingsWithVenue);
+          }
+        }
+        setBookings(allBookings);
+      } catch (error) {
+        console.error('Error loading bookings:', error);
+      }
+    };
+
+    loadBookings();
+  }, [venues]);
 
   // Analytics data
   const analyticsData = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [
       {
-        label: 'Revenue',
+        label: 'Revenue (₹)',
         data: [30000, 45000, 35000, 50000, 60000, 75000],
         borderColor: 'rgb(75, 192, 192)',
+        backgroundColor: 'rgba(75, 192, 192, 0.1)',
         tension: 0.1
       },
       {
         label: 'Bookings',
         data: [10, 15, 12, 18, 20, 25],
         borderColor: 'rgb(255, 99, 132)',
+        backgroundColor: 'rgba(255, 99, 132, 0.1)',
         tension: 0.1
       }
     ]
@@ -84,6 +102,11 @@ const Dashboard = () => {
       title: {
         display: true,
         text: 'Monthly Performance'
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true
       }
     }
   };
@@ -101,7 +124,7 @@ const Dashboard = () => {
   }, [user, navigate, venues, selectedVenueId]);
 
   const handleDeleteVenue = async (venueId: string) => {
-    if (!confirm("Are you sure you want to delete this venue?")) return;
+    if (!confirm("Are you sure you want to delete this venue? This action cannot be undone.")) return;
 
     try {
       await deleteVenue(venueId, user?.id);
@@ -131,13 +154,23 @@ const Dashboard = () => {
     }
   };
 
-  // Calculate stats from venues
-  const totalRevenue = bookings.reduce((sum, booking) => sum + booking.amount, 0);
-  const approvedVenues = venues.filter(venue => venue.status === 'approved').length;
-  const pendingVenues = venues.filter(venue => venue.status === 'pending').length;
-  const avgRating = venues.length > 0 
-    ? venues.reduce((sum, venue) => sum + venue.rating, 0) / venues.length 
-    : 0;
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow pt-24 pb-16 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
+            <p className="text-gray-600 mb-6">Please log in to access your dashboard.</p>
+            <ButtonCustom onClick={() => navigate('/auth')} variant="gold">
+              Sign In
+            </ButtonCustom>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -169,7 +202,7 @@ const Dashboard = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-500">Total Revenue</CardTitle>
@@ -177,7 +210,7 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-brand-blue">
-                  ₹{totalRevenue.toLocaleString()}
+                  ₹{statistics.totalRevenue.toLocaleString()}
                 </div>
                 <p className="text-xs text-green-600 mt-1">+12.5% from last month</p>
               </CardContent>
@@ -186,12 +219,12 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-500">Active Venues</CardTitle>
-                <Eye className="h-4 w-4 text-blue-600" />
+                <MapPin className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-brand-blue">{approvedVenues}</div>
+                <div className="text-2xl font-bold text-brand-blue">{statistics.approvedVenues}</div>
                 <p className="text-xs text-gray-600 mt-1">
-                  {pendingVenues} pending approval
+                  {statistics.pendingVenues} pending approval
                 </p>
               </CardContent>
             </Card>
@@ -202,21 +235,23 @@ const Dashboard = () => {
                 <Calendar className="h-4 w-4 text-purple-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-brand-blue">{bookings.length}</div>
+                <div className="text-2xl font-bold text-brand-blue">{statistics.totalBookings}</div>
                 <p className="text-xs text-green-600 mt-1">+5% from last month</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">Avg. Rating</CardTitle>
-                <Heart className="h-4 w-4 text-red-600" />
+                <CardTitle className="text-sm font-medium text-gray-500">Total Venues</CardTitle>
+                <Users className="h-4 w-4 text-orange-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-brand-blue">
-                  {avgRating.toFixed(1)}
+                  {statistics.totalVenues}
                 </div>
-                <p className="text-xs text-gray-600 mt-1">From {venues.length} venues</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {statistics.rejectedVenues} rejected
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -232,7 +267,7 @@ const Dashboard = () => {
                   My Venues ({venues.length})
                 </TabsTrigger>
                 <TabsTrigger value="bookings" className="flex-1 py-4">
-                  Bookings
+                  Bookings ({bookings.length})
                 </TabsTrigger>
                 <TabsTrigger value="analytics" className="flex-1 py-4">
                   Analytics
@@ -251,14 +286,21 @@ const Dashboard = () => {
                           <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0">
                             <div>
                               <p className="font-medium">{booking.venueName}</p>
-                              <p className="text-sm text-gray-600">{booking.customerName}</p>
+                              <p className="text-sm text-gray-600">
+                                {booking.guest_count} guests
+                              </p>
                             </div>
                             <div className="text-right">
-                              <p className="font-medium">₹{booking.amount.toLocaleString()}</p>
-                              <p className="text-sm text-gray-600">{format(new Date(booking.date), 'PP')}</p>
+                              <p className="font-medium">₹{booking.total_amount.toLocaleString()}</p>
+                              <p className="text-sm text-gray-600">
+                                {format(new Date(booking.booking_date), 'PP')}
+                              </p>
                             </div>
                           </div>
                         ))}
+                        {bookings.length === 0 && (
+                          <p className="text-gray-500 text-center py-4">No bookings yet</p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -288,6 +330,9 @@ const Dashboard = () => {
                             </div>
                           </div>
                         ))}
+                        {venues.length === 0 && (
+                          <p className="text-gray-500 text-center py-4">No venues added yet</p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -368,44 +413,49 @@ const Dashboard = () => {
               </TabsContent>
 
               <TabsContent value="bookings" className="p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-4">Booking ID</th>
-                        <th className="text-left py-3 px-4">Customer</th>
-                        <th className="text-left py-3 px-4">Venue</th>
-                        <th className="text-left py-3 px-4">Date</th>
-                        <th className="text-left py-3 px-4">Amount</th>
-                        <th className="text-left py-3 px-4">Status</th>
-                        <th className="text-left py-3 px-4">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bookings.map((booking) => (
-                        <tr key={booking.id} className="border-b">
-                          <td className="py-3 px-4">#{booking.id}</td>
-                          <td className="py-3 px-4">{booking.customerName}</td>
-                          <td className="py-3 px-4">{booking.venueName}</td>
-                          <td className="py-3 px-4">{format(new Date(booking.date), 'PP')}</td>
-                          <td className="py-3 px-4">₹{booking.amount.toLocaleString()}</td>
-                          <td className="py-3 px-4">
-                            <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                              getStatusColor(booking.status)
-                            }`}>
-                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <ButtonCustom variant="outline" size="sm">
-                              View Details
-                            </ButtonCustom>
-                          </td>
+                {bookings.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4">Booking ID</th>
+                          <th className="text-left py-3 px-4">Venue</th>
+                          <th className="text-left py-3 px-4">Date</th>
+                          <th className="text-left py-3 px-4">Time</th>
+                          <th className="text-left py-3 px-4">Guests</th>
+                          <th className="text-left py-3 px-4">Amount</th>
+                          <th className="text-left py-3 px-4">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {bookings.map((booking) => (
+                          <tr key={booking.id} className="border-b">
+                            <td className="py-3 px-4">#{booking.id.slice(0, 8)}</td>
+                            <td className="py-3 px-4">{booking.venueName}</td>
+                            <td className="py-3 px-4">{format(new Date(booking.booking_date), 'PP')}</td>
+                            <td className="py-3 px-4">{booking.start_time} - {booking.end_time}</td>
+                            <td className="py-3 px-4">{booking.guest_count}</td>
+                            <td className="py-3 px-4">₹{booking.total_amount.toLocaleString()}</td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                                getStatusColor(booking.status)
+                              }`}>
+                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <h3 className="text-lg font-medium mb-2">No Bookings Yet</h3>
+                    <p className="text-gray-600">
+                      Bookings for your venues will appear here
+                    </p>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="analytics" className="p-6">
@@ -438,7 +488,7 @@ const Dashboard = () => {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-lg">Revenue & Bookings</CardTitle>
+                        <CardTitle className="text-lg">Revenue & Bookings Trend</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <Line data={analyticsData} options={analyticsOptions} />
@@ -465,10 +515,13 @@ const Dashboard = () => {
                               </div>
                               <div className="text-right">
                                 <p className="font-medium">₹{venue.price.toLocaleString()}</p>
-                                <p className="text-sm text-green-600">+15% this month</p>
+                                <p className="text-sm text-green-600">Rating: {venue.rating.toFixed(1)}</p>
                               </div>
                             </div>
                           ))}
+                          {venues.length === 0 && (
+                            <p className="text-gray-500 text-center py-4">No venues to display</p>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
