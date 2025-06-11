@@ -19,6 +19,16 @@ export interface Venue {
   status?: 'pending' | 'approved' | 'rejected';
   created_at?: string;
   updated_at?: string;
+  event_types?: string[];
+  parking_spaces?: number;
+  setup_time?: number;
+  cleanup_time?: number;
+  cancellation_policy?: string;
+  payment_terms?: string;
+  special_features?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  website?: string;
 }
 
 export interface DetailedVenueData {
@@ -31,6 +41,16 @@ export interface DetailedVenueData {
   availability: string[];
   imageFiles: File[];
   userId?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  website?: string;
+  specialFeatures?: string;
+  eventTypes?: string[];
+  parkingSpaces?: string;
+  setupTime?: string;
+  cleanupTime?: string;
+  cancellationPolicy?: string;
+  paymentTerms?: string;
 }
 
 export interface VenueAnalytics {
@@ -89,7 +109,17 @@ export const addDetailedVenue = async (data: DetailedVenueData): Promise<string>
       rating: 0,
       featured: false,
       submitted_by: user.id,
-      status: 'pending' as const
+      status: 'pending' as const,
+      event_types: data.eventTypes || [],
+      parking_spaces: data.parkingSpaces ? parseInt(data.parkingSpaces) : null,
+      setup_time: data.setupTime ? parseFloat(data.setupTime) : null,
+      cleanup_time: data.cleanupTime ? parseFloat(data.cleanupTime) : null,
+      cancellation_policy: data.cancellationPolicy || null,
+      payment_terms: data.paymentTerms || null,
+      special_features: data.specialFeatures || null,
+      contact_email: data.contactEmail || null,
+      contact_phone: data.contactPhone || null,
+      website: data.website || null,
     };
 
     // Insert into Supabase
@@ -558,6 +588,11 @@ export const searchVenues = async (filters: {
       query = query.overlaps('amenities', filters.amenities);
     }
 
+    // Event type filter
+    if (filters.eventType) {
+      query = query.overlaps('event_types', [filters.eventType]);
+    }
+
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
@@ -591,7 +626,7 @@ export const getVenueStatistics = async (userId?: string): Promise<{
     // Get venue counts
     const { data: venues, error: venuesError } = await supabase
       .from('venues')
-      .select('status')
+      .select('id, status')
       .eq('submitted_by', targetUserId);
 
     if (venuesError) throw venuesError;
