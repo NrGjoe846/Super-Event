@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { addDetailedVenue } from "@/services/venueService";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, X, MapPin, Users, DollarSign, Calendar, Star, CheckCircle } from "lucide-react";
+import { Upload, X, MapPin, Users, DollarSign, Calendar, Star, CheckCircle, AlertCircle, Camera, Plus, Trash2 } from "lucide-react";
 
 const AddVenue = () => {
   const { user } = useAuth();
@@ -19,6 +19,7 @@ const AddVenue = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [dragActive, setDragActive] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     location: "",
@@ -31,6 +32,14 @@ const AddVenue = () => {
     contactPhone: "",
     website: "",
     specialFeatures: "",
+    eventTypes: [] as string[],
+    parkingSpaces: "",
+    maxCapacity: "",
+    minCapacity: "",
+    setupTime: "",
+    cleanupTime: "",
+    cancellationPolicy: "",
+    paymentTerms: "",
   });
 
   useEffect(() => {
@@ -63,7 +72,31 @@ const AddVenue = () => {
     "Lighting System",
     "Bridal Suite",
     "Garden Area",
-    "Pool Access"
+    "Pool Access",
+    "Elevator Access",
+    "Wheelchair Accessible",
+    "Generator Backup",
+    "CCTV Surveillance",
+    "Fire Safety Systems"
+  ];
+
+  const eventTypes = [
+    "Wedding",
+    "Corporate Event",
+    "Birthday Party",
+    "Anniversary",
+    "Conference",
+    "Workshop",
+    "Product Launch",
+    "Graduation",
+    "Reunion",
+    "Cultural Event",
+    "Religious Ceremony",
+    "Charity Event",
+    "Fashion Show",
+    "Art Exhibition",
+    "Music Concert",
+    "Dance Performance"
   ];
 
   const daysOfWeek = [
@@ -100,6 +133,19 @@ const AddVenue = () => {
         } else if (Number(formData.price) < 1000) {
           errors.price = "Price should be at least ₹1,000";
         }
+
+        if (!formData.minCapacity || !formData.maxCapacity) {
+          errors.capacity = "Both minimum and maximum capacity are required";
+        } else {
+          const min = parseInt(formData.minCapacity);
+          const max = parseInt(formData.maxCapacity);
+          if (min >= max) {
+            errors.capacity = "Maximum capacity must be greater than minimum";
+          }
+          if (min < 10) {
+            errors.capacity = "Minimum capacity should be at least 10";
+          }
+        }
         break;
 
       case 2:
@@ -108,20 +154,6 @@ const AddVenue = () => {
         } else if (formData.description.length < 50) {
           errors.description = "Description should be at least 50 characters";
         }
-        
-        if (!formData.capacity.trim()) {
-          errors.capacity = "Capacity is required";
-        } else if (!/^\d+-\d+$/.test(formData.capacity)) {
-          errors.capacity = "Please enter capacity in format: min-max (e.g., 100-500)";
-        } else {
-          const [min, max] = formData.capacity.split('-').map(Number);
-          if (min >= max) {
-            errors.capacity = "Maximum capacity must be greater than minimum";
-          }
-          if (min < 10) {
-            errors.capacity = "Minimum capacity should be at least 10";
-          }
-        }
 
         if (formData.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
           errors.contactEmail = "Please enter a valid email address";
@@ -129,6 +161,10 @@ const AddVenue = () => {
 
         if (formData.contactPhone && !/^[\d\s\-\+\(\)]{10,}$/.test(formData.contactPhone)) {
           errors.contactPhone = "Please enter a valid phone number";
+        }
+
+        if (formData.eventTypes.length === 0) {
+          errors.eventTypes = "Please select at least one event type";
         }
         break;
 
@@ -169,10 +205,27 @@ const AddVenue = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleImageAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFiles = (files: FileList) => {
     const maxSize = 5 * 1024 * 1024; // 5MB
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
@@ -223,6 +276,12 @@ const AddVenue = () => {
     }
   };
 
+  const handleImageAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    handleFiles(files);
+  };
+
   const removeImage = (index: number) => {
     const urlToRemove = images[index];
     if (urlToRemove.startsWith('blob:')) {
@@ -230,6 +289,20 @@ const AddVenue = () => {
     }
     setImages(prev => prev.filter((_, i) => i !== index));
     setImageFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const reorderImages = (fromIndex: number, toIndex: number) => {
+    const newImages = [...images];
+    const newImageFiles = [...imageFiles];
+    
+    const [movedImage] = newImages.splice(fromIndex, 1);
+    const [movedFile] = newImageFiles.splice(fromIndex, 1);
+    
+    newImages.splice(toIndex, 0, movedImage);
+    newImageFiles.splice(toIndex, 0, movedFile);
+    
+    setImages(newImages);
+    setImageFiles(newImageFiles);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -245,7 +318,7 @@ const AddVenue = () => {
       const venueData = {
         venueName: formData.name,
         location: formData.location,
-        capacity: formData.capacity,
+        capacity: `${formData.minCapacity}-${formData.maxCapacity}`,
         description: formData.description,
         price: Number(formData.price),
         amenities: formData.amenities,
@@ -256,6 +329,12 @@ const AddVenue = () => {
         contactPhone: formData.contactPhone,
         website: formData.website,
         specialFeatures: formData.specialFeatures,
+        eventTypes: formData.eventTypes,
+        parkingSpaces: formData.parkingSpaces,
+        setupTime: formData.setupTime,
+        cleanupTime: formData.cleanupTime,
+        cancellationPolicy: formData.cancellationPolicy,
+        paymentTerms: formData.paymentTerms,
       };
 
       const venueId = await addDetailedVenue(venueData);
@@ -278,12 +357,20 @@ const AddVenue = () => {
         contactPhone: "",
         website: "",
         specialFeatures: "",
+        eventTypes: [],
+        parkingSpaces: "",
+        maxCapacity: "",
+        minCapacity: "",
+        setupTime: "",
+        cleanupTime: "",
+        cancellationPolicy: "",
+        paymentTerms: "",
       });
       setImages([]);
       setImageFiles([]);
       setCurrentStep(1);
 
-      // Navigate to dashboard or venues page
+      // Navigate to dashboard
       navigate("/dashboard");
     } catch (error) {
       toast({
@@ -297,7 +384,7 @@ const AddVenue = () => {
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -322,6 +409,16 @@ const AddVenue = () => {
         : [...prev.availability, day]
     }));
     setFormErrors(prev => ({ ...prev, availability: "" }));
+  };
+
+  const toggleEventType = (eventType: string) => {
+    setFormData(prev => ({
+      ...prev,
+      eventTypes: prev.eventTypes.includes(eventType)
+        ? prev.eventTypes.filter(e => e !== eventType)
+        : [...prev.eventTypes, eventType]
+    }));
+    setFormErrors(prev => ({ ...prev, eventTypes: "" }));
   };
 
   const getStepIcon = (step: number) => {
@@ -419,27 +516,56 @@ const AddVenue = () => {
               </div>
 
               <div>
-                <label htmlFor="capacity" className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Guest Capacity *
                 </label>
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <input
-                    id="capacity"
-                    name="capacity"
-                    type="text"
-                    value={formData.capacity}
-                    onChange={handleInputChange}
-                    placeholder="e.g., 100-500"
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors ${
-                      formErrors.capacity ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      name="minCapacity"
+                      type="number"
+                      min="10"
+                      value={formData.minCapacity}
+                      onChange={handleInputChange}
+                      placeholder="Min (e.g., 100)"
+                      className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors ${
+                        formErrors.capacity ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <input
+                      name="maxCapacity"
+                      type="number"
+                      min="10"
+                      value={formData.maxCapacity}
+                      onChange={handleInputChange}
+                      placeholder="Max (e.g., 500)"
+                      className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors ${
+                        formErrors.capacity ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                  </div>
                 </div>
                 {formErrors.capacity && (
                   <p className="mt-1 text-sm text-red-500">{formErrors.capacity}</p>
                 )}
-                <p className="mt-1 text-xs text-gray-500">Format: minimum-maximum (e.g., 100-500)</p>
+              </div>
+
+              <div>
+                <label htmlFor="parkingSpaces" className="block text-sm font-medium text-gray-700 mb-2">
+                  Parking Spaces (Optional)
+                </label>
+                <input
+                  id="parkingSpaces"
+                  name="parkingSpaces"
+                  type="number"
+                  min="0"
+                  value={formData.parkingSpaces}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 50"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors"
+                />
               </div>
             </div>
           </motion.div>
@@ -484,6 +610,71 @@ const AddVenue = () => {
                     <p className="text-xs text-gray-500">Minimum 50 characters</p>
                   )}
                   <p className="text-xs text-gray-500">{formData.description.length} characters</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Event Types Suitable For *
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {eventTypes.map((eventType) => (
+                    <label 
+                      key={eventType} 
+                      className={`flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all hover:bg-gray-50 ${
+                        formData.eventTypes.includes(eventType) 
+                          ? 'border-brand-blue bg-brand-blue/5' 
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.eventTypes.includes(eventType)}
+                        onChange={() => toggleEventType(eventType)}
+                        className="rounded border-gray-300 text-brand-blue focus:ring-brand-blue"
+                      />
+                      <span className="text-sm font-medium">{eventType}</span>
+                    </label>
+                  ))}
+                </div>
+                {formErrors.eventTypes && (
+                  <p className="mt-2 text-sm text-red-500">{formErrors.eventTypes}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="setupTime" className="block text-sm font-medium text-gray-700 mb-2">
+                    Setup Time Required (Hours)
+                  </label>
+                  <input
+                    id="setupTime"
+                    name="setupTime"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={formData.setupTime}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 2"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="cleanupTime" className="block text-sm font-medium text-gray-700 mb-2">
+                    Cleanup Time Required (Hours)
+                  </label>
+                  <input
+                    id="cleanupTime"
+                    name="cleanupTime"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={formData.cleanupTime}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 1"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors"
+                  />
                 </div>
               </div>
 
@@ -558,6 +749,46 @@ const AddVenue = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="cancellationPolicy" className="block text-sm font-medium text-gray-700 mb-2">
+                    Cancellation Policy
+                  </label>
+                  <select
+                    id="cancellationPolicy"
+                    name="cancellationPolicy"
+                    value={formData.cancellationPolicy}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors"
+                  >
+                    <option value="">Select policy</option>
+                    <option value="flexible">Flexible (24 hours notice)</option>
+                    <option value="moderate">Moderate (7 days notice)</option>
+                    <option value="strict">Strict (30 days notice)</option>
+                    <option value="non-refundable">Non-refundable</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="paymentTerms" className="block text-sm font-medium text-gray-700 mb-2">
+                    Payment Terms
+                  </label>
+                  <select
+                    id="paymentTerms"
+                    name="paymentTerms"
+                    value={formData.paymentTerms}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-colors"
+                  >
+                    <option value="">Select terms</option>
+                    <option value="full-advance">Full payment in advance</option>
+                    <option value="50-50">50% advance, 50% on event day</option>
+                    <option value="30-70">30% advance, 70% on event day</option>
+                    <option value="installments">Multiple installments</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </motion.div>
         );
@@ -579,7 +810,17 @@ const AddVenue = () => {
             </div>
 
             <div className="space-y-6">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-brand-blue/50 transition-colors">
+              <div 
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  dragActive 
+                    ? "border-brand-blue bg-brand-blue/5" 
+                    : "border-gray-300 hover:border-brand-blue/50"
+                }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
                 <input
                   type="file"
                   accept="image/*"
@@ -589,7 +830,7 @@ const AddVenue = () => {
                   id="image-upload"
                 />
                 <label htmlFor="image-upload" className="cursor-pointer">
-                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Images</h3>
                   <p className="text-gray-600 mb-4">
                     Drag and drop your images here, or click to browse
@@ -605,10 +846,24 @@ const AddVenue = () => {
 
               {images.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-medium mb-4">Uploaded Images ({images.length}/10)</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium">Uploaded Images ({images.length}/10)</h3>
+                    <p className="text-sm text-gray-500">Drag to reorder • First image will be the main photo</p>
+                  </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {images.map((previewUrl, index) => (
-                      <div key={index} className="relative group aspect-square rounded-lg overflow-hidden border">
+                      <div 
+                        key={index} 
+                        className="relative group aspect-square rounded-lg overflow-hidden border cursor-move"
+                        draggable
+                        onDragStart={(e) => e.dataTransfer.setData("text/plain", index.toString())}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
+                          reorderImages(fromIndex, index);
+                        }}
+                      >
                         <img
                           src={previewUrl}
                           alt={`Venue preview ${index + 1}`}
@@ -620,7 +875,7 @@ const AddVenue = () => {
                             onClick={() => removeImage(index)}
                             className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
                           >
-                            <X className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                         {index === 0 && (
@@ -628,6 +883,9 @@ const AddVenue = () => {
                             Main Image
                           </div>
                         )}
+                        <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                          {index + 1}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -646,6 +904,8 @@ const AddVenue = () => {
                   <li>• Capture different angles and lighting</li>
                   <li>• Highlight unique features and amenities</li>
                   <li>• Use high-resolution, well-lit photos</li>
+                  <li>• Show capacity with people if possible</li>
+                  <li>• Include photos of parking and entrance</li>
                 </ul>
               </div>
             </div>
