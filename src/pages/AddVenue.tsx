@@ -20,6 +20,7 @@ const AddVenue = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [dragActive, setDragActive] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     location: "",
@@ -339,45 +340,56 @@ const AddVenue = () => {
 
       const venueId = await addDetailedVenue(venueData);
 
+      // Show success animation
+      setShowSuccessAnimation(true);
+
+      // Show success toast with real-time notification
       toast({
         title: "Venue Added Successfully! 🎉",
-        description: "Your venue has been submitted for review and will be listed on Super Events once approved.",
+        description: "Your venue has been submitted for review and will appear in real-time once approved.",
+        duration: 6000,
       });
 
-      // Reset form
-      setFormData({
-        name: "",
-        location: "",
-        price: "",
-        description: "",
-        capacity: "",
-        amenities: [],
-        availability: [],
-        contactEmail: "",
-        contactPhone: "",
-        website: "",
-        specialFeatures: "",
-        eventTypes: [],
-        parkingSpaces: "",
-        maxCapacity: "",
-        minCapacity: "",
-        setupTime: "",
-        cleanupTime: "",
-        cancellationPolicy: "",
-        paymentTerms: "",
-      });
-      setImages([]);
-      setImageFiles([]);
-      setCurrentStep(1);
+      // Wait for animation then navigate
+      setTimeout(() => {
+        // Reset form
+        setFormData({
+          name: "",
+          location: "",
+          price: "",
+          description: "",
+          capacity: "",
+          amenities: [],
+          availability: [],
+          contactEmail: "",
+          contactPhone: "",
+          website: "",
+          specialFeatures: "",
+          eventTypes: [],
+          parkingSpaces: "",
+          maxCapacity: "",
+          minCapacity: "",
+          setupTime: "",
+          cleanupTime: "",
+          cancellationPolicy: "",
+          paymentTerms: "",
+        });
+        setImages([]);
+        setImageFiles([]);
+        setCurrentStep(1);
+        setShowSuccessAnimation(false);
 
-      // Navigate to dashboard
-      navigate("/dashboard");
+        // Navigate to dashboard
+        navigate("/dashboard");
+      }, 3000);
+
     } catch (error) {
       toast({
         title: "Error Adding Venue",
         description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       });
+      setShowSuccessAnimation(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -430,6 +442,61 @@ const AddVenue = () => {
       default: return null;
     }
   };
+
+  // Success Animation Overlay
+  const SuccessAnimation = () => (
+    <AnimatePresence>
+      {showSuccessAnimation && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
+        >
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            className="bg-white rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
+            >
+              <CheckCircle className="h-10 w-10 text-green-600" />
+            </motion.div>
+            <motion.h3
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="text-2xl font-bold text-gray-900 mb-2"
+            >
+              Venue Added Successfully!
+            </motion.h3>
+            <motion.p
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="text-gray-600 mb-4"
+            >
+              Your venue is now being processed and will appear in real-time once approved.
+            </motion.p>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.8, type: "spring" }}
+              className="flex items-center justify-center gap-2 text-sm text-green-600"
+            >
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Processing in real-time...</span>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -998,7 +1065,8 @@ const AddVenue = () => {
                   <h4 className="font-medium text-green-900 mb-2">Ready to Submit!</h4>
                   <p className="text-sm text-green-800">
                     Your venue listing is complete. After submission, our team will review your venue 
-                    and approve it within 24-48 hours. You'll receive an email notification once it's live.
+                    and approve it within 24-48 hours. You'll receive real-time notifications once it's live 
+                    and start appearing in search results immediately.
                   </p>
                 </div>
               </div>
@@ -1016,7 +1084,7 @@ const AddVenue = () => {
           <div className="mb-8 text-center">
             <h1 className="text-4xl font-bold mb-4">List Your Venue</h1>
             <p className="text-gray-600 text-lg">
-              Join thousands of venue owners on Super Events and reach more customers
+              Join thousands of venue owners on Super Events and reach more customers with real-time visibility
             </p>
           </div>
 
@@ -1120,7 +1188,7 @@ const AddVenue = () => {
           <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
             <h3 className="font-semibold text-blue-900 mb-2">Need Help?</h3>
             <p className="text-blue-800 text-sm mb-3">
-              Our team is here to help you create the perfect venue listing.
+              Our team is here to help you create the perfect venue listing with real-time visibility.
             </p>
             <div className="flex flex-wrap gap-4 text-sm">
               <a href="/contact" className="text-blue-600 hover:underline">
@@ -1137,6 +1205,9 @@ const AddVenue = () => {
         </div>
       </main>
       <Footer />
+      
+      {/* Success Animation */}
+      <SuccessAnimation />
     </div>
   );
 };
