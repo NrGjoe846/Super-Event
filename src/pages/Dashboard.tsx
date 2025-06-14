@@ -6,7 +6,7 @@ import { ButtonCustom } from "../components/ui/button-custom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getUserVenuesEnhanced, deleteVenueEnhanced, isSuperEventsUser } from "@/services/enhancedVenueService";
-import { exportVenuesToJSON, clearAllVenueData } from "@/services/localVenueService";
+import { exportVenuesAsJson, clearAllVenueData } from "@/services/jsonVenueService";
 import { VenueStatusBadge } from "@/components/VenueStatusBadge";
 import { Venue } from "@/services/venueService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,7 +23,7 @@ import {
   Legend
 } from 'chart.js';
 import { format } from "date-fns";
-import { Eye, Calendar, Heart, TrendingUp, Plus, Edit, Trash2, MapPin, Users, Download, RefreshCw } from 'lucide-react';
+import { Eye, Calendar, Heart, TrendingUp, Plus, Edit, Trash2, MapPin, Users, Download, RefreshCw, FileText } from 'lucide-react';
 
 // Register ChartJS components
 ChartJS.register(
@@ -122,7 +122,7 @@ const Dashboard = () => {
       if (isSuperEventsUser(user.email) && userVenues.length > 0) {
         toast({
           title: "Your Venues Loaded",
-          description: `Found ${userVenues.length} venue(s) from your local storage.`,
+          description: `Found ${userVenues.length} venue(s) from your JSON storage.`,
           duration: 3000,
         });
       }
@@ -159,7 +159,7 @@ const Dashboard = () => {
 
   const handleExportVenues = () => {
     if (isSuperEventsUser(user?.email)) {
-      exportVenuesToJSON();
+      exportVenuesAsJson();
       toast({
         title: "Venues Exported",
         description: "Your venues have been exported to a JSON file.",
@@ -196,7 +196,7 @@ const Dashboard = () => {
       });
       toast({
         title: "Data Cleared",
-        description: "All venue data has been cleared from local storage.",
+        description: "All venue data has been cleared from JSON storage.",
       });
     }
   };
@@ -231,7 +231,7 @@ const Dashboard = () => {
                 Welcome back, {user?.name}! Here's your venue management overview.
                 {isSuperEventsUser(user?.email) && (
                   <span className="block text-blue-600 text-sm mt-1">
-                    🔒 Super Events User - Your venues are stored locally
+                    🔒 Super Events User - Your venues are stored in JSON format
                   </span>
                 )}
               </p>
@@ -342,7 +342,7 @@ const Dashboard = () => {
                 </TabsTrigger>
                 {isSuperEventsUser(user?.email) && (
                   <TabsTrigger value="settings" className="flex-1 py-4">
-                    Settings
+                    JSON Settings
                   </TabsTrigger>
                 )}
               </TabsList>
@@ -448,7 +448,7 @@ const Dashboard = () => {
                           {isSuperEventsUser(user?.email) && (
                             <div className="absolute top-2 left-2">
                               <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                LOCAL
+                                JSON
                               </span>
                             </div>
                           )}
@@ -557,13 +557,13 @@ const Dashboard = () => {
                   <div className="space-y-6">
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-lg">Super Events User Settings</CardTitle>
+                        <CardTitle className="text-lg">Super Events JSON Storage Settings</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <h4 className="font-medium text-blue-900 mb-2">🔒 Local Storage Mode</h4>
+                          <h4 className="font-medium text-blue-900 mb-2">📁 JSON File Storage Mode</h4>
                           <p className="text-blue-800 text-sm mb-4">
-                            Your venues are stored locally in your browser's storage. This means they persist across sessions but are only available on this device.
+                            Your venues are stored in JSON format within the project structure. This allows for persistent storage that's part of the codebase and supports image data as base64 encoded strings.
                           </p>
                           <div className="space-y-2">
                             <ButtonCustom
@@ -572,7 +572,7 @@ const Dashboard = () => {
                               icon={<Download className="h-4 w-4" />}
                               className="w-full"
                             >
-                              Export All Venues to JSON
+                              Export All Venues to JSON File
                             </ButtonCustom>
                             <ButtonCustom
                               variant="outline"
@@ -581,15 +581,27 @@ const Dashboard = () => {
                               icon={<RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />}
                               className="w-full"
                             >
-                              Refresh Venue Data
+                              Refresh Venue Data from JSON
                             </ButtonCustom>
                           </div>
+                        </div>
+
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <h4 className="font-medium text-green-900 mb-2">✨ Features</h4>
+                          <ul className="text-green-800 text-sm space-y-1">
+                            <li>• Images stored as base64 encoded data</li>
+                            <li>• Data persists across sessions</li>
+                            <li>• Part of project file structure</li>
+                            <li>• No external database required</li>
+                            <li>• Instant venue visibility</li>
+                            <li>• Full venue data export capability</li>
+                          </ul>
                         </div>
 
                         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                           <h4 className="font-medium text-red-900 mb-2">⚠️ Danger Zone</h4>
                           <p className="text-red-800 text-sm mb-4">
-                            This action will permanently delete all your venue data from local storage. This cannot be undone.
+                            This action will permanently delete all your venue data from JSON storage. This cannot be undone.
                           </p>
                           <ButtonCustom
                             variant="outline"
