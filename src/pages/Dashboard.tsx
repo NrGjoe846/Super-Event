@@ -5,10 +5,10 @@ import { Footer } from "../components/Footer";
 import { ButtonCustom } from "../components/ui/button-custom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useUserVenuesRealtime, useVenueStatistics } from "@/hooks/useVenueRealtime";
-import { VenueAnalyticsDashboard } from "@/components/VenueAnalyticsDashboard";
+import { getUserVenuesEnhanced, deleteVenueEnhanced, isSuperEventsUser } from "@/services/enhancedVenueService";
+import { exportVenuesToJSON, clearAllVenueData } from "@/services/localVenueService";
 import { VenueStatusBadge } from "@/components/VenueStatusBadge";
-import { deleteVenue, getVenueBookings } from "@/services/venueService";
+import { Venue } from "@/services/venueService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Line } from "react-chartjs-2";
@@ -23,7 +23,7 @@ import {
   Legend
 } from 'chart.js';
 import { format } from "date-fns";
-import { Eye, Calendar, Heart, TrendingUp, Plus, Edit, Trash2, MapPin, Users } from 'lucide-react';
+import { Eye, Calendar, Heart, TrendingUp, Plus, Edit, Trash2, MapPin, Users, Download, RefreshCw } from 'lucide-react';
 
 // Register ChartJS components
 ChartJS.register(
@@ -41,36 +41,16 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
-  const { venues, isLoading } = useUserVenuesRealtime();
-  const { statistics, isLoading: statsLoading } = useVenueStatistics();
-  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
-  const [bookings, setBookings] = useState<any[]>([]);
-
-  // Load bookings for user's venues
-  useEffect(() => {
-    const loadBookings = async () => {
-      if (venues.length === 0) return;
-      
-      try {
-        const allBookings = [];
-        for (const venue of venues) {
-          if (venue.id) {
-            const venueBookings = await getVenueBookings(venue.id);
-            const bookingsWithVenue = venueBookings.map(booking => ({
-              ...booking,
-              venueName: venue.name
-            }));
-            allBookings.push(...bookingsWithVenue);
-          }
-        }
-        setBookings(allBookings);
-      } catch (error) {
-        console.error('Error loading bookings:', error);
-      }
-    };
-
-    loadBookings();
-  }, [venues]);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statistics, setStatistics] = useState({
+    totalVenues: 0,
+    approvedVenues: 0,
+    pendingVenues: 0,
+    rejectedVenues: 0,
+    totalBookings: 0,
+    totalRevenue: 0
+  });
 
   // Analytics data
   const analyticsData = {
@@ -116,22 +96,58 @@ const Dashboard = () => {
       navigate("/auth");
       return;
     }
+    loadUserVenues();
+  }, [user, navigate]);
 
-    // Set first venue as selected for analytics
-    if (venues.length > 0 && !selectedVenueId) {
-      setSelectedVenueId(venues[0].id!);
+  const loadUserVenues = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      const userVenues = await getUserVenuesEnhanced(user.id, user.email);
+      setVenues(userVenues);
+      
+      // Calculate statistics
+      const stats = {
+        totalVenues: userVenues.length,
+        approvedVenues: userVenues.filter(v => v.status === 'approved').length,
+        pendingVenues: userVenues.filter(v => v.status === 'pending').length,
+        rejectedVenues: userVenues.filter(v => v.status === 'rejected').length,
+        totalBookings: 0, // Mock data
+        totalRevenue: userVenues.reduce((sum, venue) => sum + venue.price, 0)
+      };
+      setStatistics(stats);
+
+      // Show special message for super events user
+      if (isSuperEventsUser(user.email) && userVenues.length > 0) {
+        toast({
+          title: "Your Venues Loaded",
+          description: `Found ${userVenues.length} venue(s) from your local storage.`,
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading user venues:', error);
+      toast({
+        title: "Error Loading Venues",
+        description: "Failed to load your venues. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [user, navigate, venues, selectedVenueId]);
+  };
 
   const handleDeleteVenue = async (venueId: string) => {
     if (!confirm("Are you sure you want to delete this venue? This action cannot be undone.")) return;
 
     try {
-      await deleteVenue(venueId, user?.id);
+      await deleteVenueEnhanced(venueId, user?.id, user?.email);
       toast({
         title: "Venue Deleted",
         description: "The venue has been successfully deleted.",
       });
+      loadUserVenues(); // Reload venues
     } catch (error) {
       toast({
         title: "Error Deleting Venue",
@@ -141,16 +157,47 @@ const Dashboard = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const handleExportVenues = () => {
+    if (isSuperEventsUser(user?.email)) {
+      exportVenuesToJSON();
+      toast({
+        title: "Venues Exported",
+        description: "Your venues have been exported to a JSON file.",
+      });
+    } else {
+      toast({
+        title: "Export Not Available",
+        description: "JSON export is only available for Super Events users.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleClearData = () => {
+    if (!isSuperEventsUser(user?.email)) {
+      toast({
+        title: "Clear Data Not Available",
+        description: "Data clearing is only available for Super Events users.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (confirm("Are you sure you want to clear all venue data? This action cannot be undone.")) {
+      clearAllVenueData();
+      setVenues([]);
+      setStatistics({
+        totalVenues: 0,
+        approvedVenues: 0,
+        pendingVenues: 0,
+        rejectedVenues: 0,
+        totalBookings: 0,
+        totalRevenue: 0
+      });
+      toast({
+        title: "Data Cleared",
+        description: "All venue data has been cleared from local storage.",
+      });
     }
   };
 
@@ -182,9 +229,33 @@ const Dashboard = () => {
               <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
               <p className="text-gray-600">
                 Welcome back, {user?.name}! Here's your venue management overview.
+                {isSuperEventsUser(user?.email) && (
+                  <span className="block text-blue-600 text-sm mt-1">
+                    🔒 Super Events User - Your venues are stored locally
+                  </span>
+                )}
               </p>
             </div>
             <div className="flex gap-3">
+              {isSuperEventsUser(user?.email) && (
+                <>
+                  <ButtonCustom
+                    variant="outline"
+                    onClick={handleExportVenues}
+                    icon={<Download className="h-4 w-4" />}
+                  >
+                    Export JSON
+                  </ButtonCustom>
+                  <ButtonCustom
+                    variant="outline"
+                    onClick={loadUserVenues}
+                    disabled={isLoading}
+                    icon={<RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />}
+                  >
+                    Refresh
+                  </ButtonCustom>
+                </>
+              )}
               <ButtonCustom
                 variant="outline"
                 onClick={() => navigate("/venues")}
@@ -266,45 +337,18 @@ const Dashboard = () => {
                 <TabsTrigger value="venues" className="flex-1 py-4">
                   My Venues ({venues.length})
                 </TabsTrigger>
-                <TabsTrigger value="bookings" className="flex-1 py-4">
-                  Bookings ({bookings.length})
-                </TabsTrigger>
                 <TabsTrigger value="analytics" className="flex-1 py-4">
                   Analytics
                 </TabsTrigger>
+                {isSuperEventsUser(user?.email) && (
+                  <TabsTrigger value="settings" className="flex-1 py-4">
+                    Settings
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="overview" className="p-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Recent Bookings</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {bookings.slice(0, 5).map((booking) => (
-                          <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-                            <div>
-                              <p className="font-medium">{booking.venueName}</p>
-                              <p className="text-sm text-gray-600">
-                                {booking.guest_count} guests
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium">₹{booking.total_amount.toLocaleString()}</p>
-                              <p className="text-sm text-gray-600">
-                                {format(new Date(booking.booking_date), 'PP')}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                        {bookings.length === 0 && (
-                          <p className="text-gray-500 text-center py-4">No bookings yet</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Your Venues</CardTitle>
@@ -326,7 +370,7 @@ const Dashboard = () => {
                             </div>
                             <div className="text-right">
                               <p className="font-medium">₹{venue.price.toLocaleString()}</p>
-                              <VenueStatusBadge status={venue.status || 'pending'} />
+                              <VenueStatusBadge status={venue.status || 'approved'} />
                             </div>
                           </div>
                         ))}
@@ -334,6 +378,49 @@ const Dashboard = () => {
                           <p className="text-gray-500 text-center py-4">No venues added yet</p>
                         )}
                       </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Quick Actions</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <ButtonCustom
+                        variant="gold"
+                        className="w-full"
+                        onClick={() => navigate("/add-venue")}
+                        icon={<Plus className="h-4 w-4" />}
+                      >
+                        Add New Venue
+                      </ButtonCustom>
+                      <ButtonCustom
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => navigate("/venues")}
+                      >
+                        Browse All Venues
+                      </ButtonCustom>
+                      {isSuperEventsUser(user?.email) && (
+                        <>
+                          <ButtonCustom
+                            variant="outline"
+                            className="w-full"
+                            onClick={handleExportVenues}
+                            icon={<Download className="h-4 w-4" />}
+                          >
+                            Export Venues to JSON
+                          </ButtonCustom>
+                          <ButtonCustom
+                            variant="outline"
+                            className="w-full text-red-600 hover:text-red-700 hover:border-red-300"
+                            onClick={handleClearData}
+                            icon={<Trash2 className="h-4 w-4" />}
+                          >
+                            Clear All Data
+                          </ButtonCustom>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -356,8 +443,15 @@ const Dashboard = () => {
                             className="w-full h-48 object-cover"
                           />
                           <div className="absolute top-2 right-2">
-                            <VenueStatusBadge status={venue.status || 'pending'} />
+                            <VenueStatusBadge status={venue.status || 'approved'} />
                           </div>
+                          {isSuperEventsUser(user?.email) && (
+                            <div className="absolute top-2 left-2">
+                              <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                LOCAL
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-2">
@@ -412,80 +506,9 @@ const Dashboard = () => {
                 )}
               </TabsContent>
 
-              <TabsContent value="bookings" className="p-6">
-                {bookings.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4">Booking ID</th>
-                          <th className="text-left py-3 px-4">Venue</th>
-                          <th className="text-left py-3 px-4">Date</th>
-                          <th className="text-left py-3 px-4">Time</th>
-                          <th className="text-left py-3 px-4">Guests</th>
-                          <th className="text-left py-3 px-4">Amount</th>
-                          <th className="text-left py-3 px-4">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bookings.map((booking) => (
-                          <tr key={booking.id} className="border-b">
-                            <td className="py-3 px-4">#{booking.id.slice(0, 8)}</td>
-                            <td className="py-3 px-4">{booking.venueName}</td>
-                            <td className="py-3 px-4">{format(new Date(booking.booking_date), 'PP')}</td>
-                            <td className="py-3 px-4">{booking.start_time} - {booking.end_time}</td>
-                            <td className="py-3 px-4">{booking.guest_count}</td>
-                            <td className="py-3 px-4">₹{booking.total_amount.toLocaleString()}</td>
-                            <td className="py-3 px-4">
-                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                                getStatusColor(booking.status)
-                              }`}>
-                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <h3 className="text-lg font-medium mb-2">No Bookings Yet</h3>
-                    <p className="text-gray-600">
-                      Bookings for your venues will appear here
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
-
               <TabsContent value="analytics" className="p-6">
                 <div className="space-y-6">
-                  {/* Venue Selection for Analytics */}
-                  {venues.length > 0 && (
-                    <div className="mb-6">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Select Venue for Analytics
-                      </label>
-                      <select
-                        value={selectedVenueId || ''}
-                        onChange={(e) => setSelectedVenueId(e.target.value)}
-                        className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
-                      >
-                        {venues.map((venue) => (
-                          <option key={venue.id} value={venue.id}>
-                            {venue.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Analytics Dashboard */}
-                  {selectedVenueId && (
-                    <VenueAnalyticsDashboard venueId={selectedVenueId} />
-                  )}
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-lg">Revenue & Bookings Trend</CardTitle>
@@ -528,6 +551,60 @@ const Dashboard = () => {
                   </div>
                 </div>
               </TabsContent>
+
+              {isSuperEventsUser(user?.email) && (
+                <TabsContent value="settings" className="p-6">
+                  <div className="space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Super Events User Settings</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-medium text-blue-900 mb-2">🔒 Local Storage Mode</h4>
+                          <p className="text-blue-800 text-sm mb-4">
+                            Your venues are stored locally in your browser's storage. This means they persist across sessions but are only available on this device.
+                          </p>
+                          <div className="space-y-2">
+                            <ButtonCustom
+                              variant="outline"
+                              onClick={handleExportVenues}
+                              icon={<Download className="h-4 w-4" />}
+                              className="w-full"
+                            >
+                              Export All Venues to JSON
+                            </ButtonCustom>
+                            <ButtonCustom
+                              variant="outline"
+                              onClick={loadUserVenues}
+                              disabled={isLoading}
+                              icon={<RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />}
+                              className="w-full"
+                            >
+                              Refresh Venue Data
+                            </ButtonCustom>
+                          </div>
+                        </div>
+
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <h4 className="font-medium text-red-900 mb-2">⚠️ Danger Zone</h4>
+                          <p className="text-red-800 text-sm mb-4">
+                            This action will permanently delete all your venue data from local storage. This cannot be undone.
+                          </p>
+                          <ButtonCustom
+                            variant="outline"
+                            onClick={handleClearData}
+                            icon={<Trash2 className="h-4 w-4" />}
+                            className="text-red-600 hover:text-red-700 hover:border-red-300"
+                          >
+                            Clear All Venue Data
+                          </ButtonCustom>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
           </Card>
         </div>
