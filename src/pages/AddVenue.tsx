@@ -5,7 +5,7 @@ import { ButtonCustom } from "../components/ui/button-custom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { addVenueEnhanced } from "@/services/enhancedVenueService";
+import { addVenueEnhanced, isSuperEventsUser } from "@/services/enhancedVenueService";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, X, MapPin, Users, DollarSign, Calendar, Star, CheckCircle, AlertCircle, Camera, Plus, Trash2 } from "lucide-react";
 
@@ -347,8 +347,8 @@ const AddVenue = () => {
       // Show success toast with real-time notification
       toast({
         title: "Venue Added Successfully! 🎉",
-        description: user?.email === 'superevents@gmail.com' 
-          ? "Your venue has been saved locally and will appear immediately in the venues list."
+        description: isSuperEventsUser(user?.email) 
+          ? "Your venue has been saved to JSON storage and will appear immediately in the venues list."
           : "Your venue has been submitted for review and will appear in real-time once approved.",
         duration: 6000,
       });
@@ -484,8 +484,8 @@ const AddVenue = () => {
               transition={{ delay: 0.6 }}
               className="text-gray-600 mb-4"
             >
-              {user?.email === 'superevents@gmail.com' 
-                ? "Your venue has been saved and will appear immediately in the venues list."
+              {isSuperEventsUser(user?.email) 
+                ? "Your venue has been saved to JSON storage and will appear immediately in the venues list."
                 : "Your venue is now being processed and will appear in real-time once approved."
               }
             </motion.p>
@@ -497,8 +497,8 @@ const AddVenue = () => {
             >
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span>
-                {user?.email === 'superevents@gmail.com' 
-                  ? "Saved to local storage..."
+                {isSuperEventsUser(user?.email) 
+                  ? "Saved to JSON storage..."
                   : "Processing in real-time..."
                 }
               </span>
@@ -885,6 +885,13 @@ const AddVenue = () => {
               </div>
               <h2 className="text-2xl font-semibold mb-2">Venue Images</h2>
               <p className="text-gray-600">Upload high-quality images to showcase your venue</p>
+              {isSuperEventsUser(user?.email) && (
+                <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-blue-800 text-sm">
+                    📁 <strong>JSON Storage:</strong> Images will be stored as base64 encoded data in the project files.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -1075,8 +1082,8 @@ const AddVenue = () => {
                 <div>
                   <h4 className="font-medium text-green-900 mb-2">Ready to Submit!</h4>
                   <p className="text-sm text-green-800">
-                    {user?.email === 'superevents@gmail.com' 
-                      ? "Your venue listing is complete. After submission, it will be saved locally and appear immediately in the venues list."
+                    {isSuperEventsUser(user?.email) 
+                      ? "Your venue listing is complete. After submission, it will be saved to JSON storage and appear immediately in the venues list with all images stored as base64 data."
                       : "Your venue listing is complete. After submission, our team will review your venue and approve it within 24-48 hours. You'll receive real-time notifications once it's live and start appearing in search results immediately."
                     }
                   </p>
@@ -1098,10 +1105,10 @@ const AddVenue = () => {
             <p className="text-gray-600 text-lg">
               Join thousands of venue owners on Super Events and reach more customers with real-time visibility
             </p>
-            {user?.email === 'superevents@gmail.com' && (
+            {isSuperEventsUser(user?.email) && (
               <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-blue-800 text-sm">
-                  🔒 <strong>Super Events User:</strong> Your venues will be saved locally and appear immediately in the venues list.
+                  📁 <strong>Super Events User:</strong> Your venues will be saved to JSON storage and appear immediately in the venues list.
                 </p>
               </div>
             )}

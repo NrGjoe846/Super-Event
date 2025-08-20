@@ -7,7 +7,7 @@ import { PaginationCustom } from "../components/ui/pagination-custom";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllVenuesEnhanced } from "@/services/enhancedVenueService";
+import { getAllVenuesEnhanced, isSuperEventsUser } from "@/services/enhancedVenueService";
 import { Venue } from "@/services/venueService";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -76,12 +76,12 @@ const Venues = () => {
       setFilteredVenues(venuesData);
       
       // Show special message for super events user
-      if (user?.email === 'superevents@gmail.com' && venuesData.length > 0) {
+      if (isSuperEventsUser(user?.email) && venuesData.length > 0) {
         const userVenues = venuesData.filter(v => v.submitted_by === 'superevents_user');
         if (userVenues.length > 0) {
           toast({
             title: "Your Venues Loaded",
-            description: `Found ${userVenues.length} venue(s) from your local storage.`,
+            description: `Found ${userVenues.length} venue(s) from your JSON storage.`,
             duration: 3000,
           });
         }
@@ -183,7 +183,7 @@ const Venues = () => {
             <h1 className="text-3xl md:text-4xl font-bold mb-4">Find Your Perfect Venue</h1>
             <p className="text-gray-600 max-w-2xl">
               Browse through our curated selection of stunning venues for all types of events, from weddings to corporate gatherings. 
-              {user?.email === 'superevents@gmail.com' && " Your personal venues are included and highlighted."}
+              {isSuperEventsUser(user?.email) && " Your personal venues from JSON storage are included and highlighted."}
             </p>
           </div>
 
@@ -232,9 +232,9 @@ const Venues = () => {
               Showing {currentVenues.length} of {filteredVenues.length} venues
               {searchQuery && ` for "${searchQuery}"`}
             </div>
-            {user?.email === 'superevents@gmail.com' && (
+            {isSuperEventsUser(user?.email) && (
               <div className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                🔒 Super Events User - Your venues are saved locally
+                📁 Super Events User - JSON Storage Active
               </div>
             )}
           </div>
@@ -265,7 +265,7 @@ const Venues = () => {
                     onClick={() => handleVenueClick(venue)}
                   />
                   {/* Special indicator for super events user's venues */}
-                  {user?.email === 'superevents@gmail.com' && venue.submitted_by === 'superevents_user' && (
+                  {isSuperEventsUser(user?.email) && venue.submitted_by === 'superevents_user' && (
                     <div className="absolute top-2 left-2">
                       <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">
                         YOUR VENUE

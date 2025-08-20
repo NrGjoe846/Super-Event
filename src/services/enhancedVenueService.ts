@@ -7,12 +7,14 @@ import {
   DetailedVenueData
 } from './venueService';
 import { 
-  saveVenueToJSON, 
-  getVenuesFromJSON, 
-  getUserVenuesFromJSON, 
-  convertToVenueFormat,
-  deleteVenueFromJSON 
-} from './localVenueService';
+  saveVenueToJson, 
+  getVenuesFromStorage, 
+  getSuperEventsUserVenues, 
+  convertJsonToVenue,
+  deleteVenueFromStorage,
+  isSuperEventsUser,
+  initializeSampleData
+} from './jsonVenueService';
 
 const SUPER_EVENTS_USER_ID = 'superevents_user';
 const SUPER_EVENTS_EMAIL = 'superevents@gmail.com';
@@ -21,9 +23,9 @@ const SUPER_EVENTS_EMAIL = 'superevents@gmail.com';
 export const addVenueEnhanced = async (venueData: DetailedVenueData, userEmail?: string): Promise<string> => {
   try {
     // Check if this is the special super events user
-    if (userEmail === SUPER_EVENTS_EMAIL) {
+    if (isSuperEventsUser(userEmail)) {
       // Save to JSON for super events user
-      const venueId = await saveVenueToJSON(venueData, SUPER_EVENTS_USER_ID);
+      const venueId = await saveVenueToJson(venueData);
       console.log('Venue saved to JSON for super events user:', venueId);
       return venueId;
     } else {
@@ -41,7 +43,7 @@ export const getAllVenuesEnhanced = async (userEmail?: string): Promise<Venue[]>
   try {
     let venues: Venue[] = [];
     
-    // Always get Supabase venues
+    // Always get Supabase venues first
     try {
       const supabaseVenues = await getSupabaseVenues();
       venues = [...supabaseVenues];
@@ -49,9 +51,14 @@ export const getAllVenuesEnhanced = async (userEmail?: string): Promise<Venue[]>
       console.warn('Could not fetch Supabase venues:', error);
     }
     
+    // Initialize sample data for super events user if needed
+    if (isSuperEventsUser(userEmail)) {
+      initializeSampleData();
+    }
+    
     // Add JSON venues (especially for super events user)
-    const jsonVenues = getVenuesFromJSON();
-    const convertedJsonVenues = jsonVenues.map(convertToVenueFormat);
+    const jsonVenues = getVenuesFromStorage();
+    const convertedJsonVenues = jsonVenues.map(convertJsonToVenue);
     
     // Merge venues, avoiding duplicates
     const allVenues = [...venues];
@@ -62,9 +69,9 @@ export const getAllVenuesEnhanced = async (userEmail?: string): Promise<Venue[]>
     });
     
     // If this is the super events user, prioritize their JSON venues
-    if (userEmail === SUPER_EVENTS_EMAIL) {
-      const userJsonVenues = getUserVenuesFromJSON(SUPER_EVENTS_USER_ID);
-      const convertedUserVenues = userJsonVenues.map(convertToVenueFormat);
+    if (isSuperEventsUser(userEmail)) {
+      const userJsonVenues = getSuperEventsUserVenues();
+      const convertedUserVenues = userJsonVenues.map(convertJsonToVenue);
       
       // Add user's venues to the beginning of the list
       convertedUserVenues.forEach(userVenue => {
@@ -87,10 +94,13 @@ export const getAllVenuesEnhanced = async (userEmail?: string): Promise<Venue[]>
 // Enhanced get user venues
 export const getUserVenuesEnhanced = async (userId: string, userEmail?: string): Promise<Venue[]> => {
   try {
-    if (userEmail === SUPER_EVENTS_EMAIL) {
+    if (isSuperEventsUser(userEmail)) {
+      // Initialize sample data if needed
+      initializeSampleData();
+      
       // Get from JSON for super events user
-      const jsonVenues = getUserVenuesFromJSON(SUPER_EVENTS_USER_ID);
-      return jsonVenues.map(convertToVenueFormat);
+      const jsonVenues = getSuperEventsUserVenues();
+      return jsonVenues.map(convertJsonToVenue);
     } else {
       // Use Supabase for other users
       return await getSupabaseVenuesByOwner(userId);
@@ -104,9 +114,9 @@ export const getUserVenuesEnhanced = async (userId: string, userEmail?: string):
 // Enhanced delete venue
 export const deleteVenueEnhanced = async (venueId: string, userId?: string, userEmail?: string): Promise<void> => {
   try {
-    if (userEmail === SUPER_EVENTS_EMAIL) {
+    if (isSuperEventsUser(userEmail)) {
       // Delete from JSON for super events user
-      deleteVenueFromJSON(venueId, SUPER_EVENTS_USER_ID);
+      deleteVenueFromStorage(venueId);
     } else {
       // Use Supabase for other users
       await deleteSupabaseVenue(venueId, userId);
@@ -117,10 +127,8 @@ export const deleteVenueEnhanced = async (venueId: string, userId?: string, user
   }
 };
 
-// Check if user is the special super events user
-export const isSuperEventsUser = (userEmail?: string): boolean => {
-  return userEmail === SUPER_EVENTS_EMAIL;
-};
+// Export the utility functions
+export { isSuperEventsUser };
 
 // Get super events user ID
 export const getSuperEventsUserId = (): string => {
